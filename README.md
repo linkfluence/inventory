@@ -1,4 +1,4 @@
-# clj-rtgi-inventory
+# inventory
 
 Cloud agnostic inventory system currently supporting:
 
