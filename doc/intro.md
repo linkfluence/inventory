@@ -1,4 +1,4 @@
-# Introduction to clj-rtgi-inventory
+# Introduction to inventory
 
 This software is dedicated to provide abstract layer on multiple compute/storage resource provider or technologies
 
