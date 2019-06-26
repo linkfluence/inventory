@@ -378,7 +378,7 @@
                                              pschema
                                              (:raid-level raid-sugg)
                                              (:number-disks raid-sugg)
-                                             "SW"
+                                             (if (some? (:raid-level raid-sugg)) "SW" "NONE")
                                              nil
                                              (server/mk-post-install-script (mk-commands (name server-id)))))
             (do
