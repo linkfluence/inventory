@@ -65,10 +65,17 @@
 
 (defn tags-binder
   [tags]
-  (map (fn [[k v]]
+  (concat
+    ;;binded tag
+    (map (fn [[k v]]
         (when-let [t-value (k tags)]
           {:name v :value t-value}))
-        (:tags-binding (get-conf))))
+        (:tags-binding (get-conf)))
+    ;;copied tag
+    (map (fn [[k v]]
+            (when (nil? (k (:tags-binding (get-conf))))
+              {:name (name k) :value v}))
+            tags)))
 
 (defn send-tags-request
   [instance]

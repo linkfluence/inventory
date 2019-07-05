@@ -1,4 +1,4 @@
-(defproject linkfluence/inventory "0.15.1"
+(defproject linkfluence/inventory "0.15.2"
   :description "Rtgi inventory App"
   :url "http://www.linkfluence.com"
   :license {:name "Eclipse Public License"
