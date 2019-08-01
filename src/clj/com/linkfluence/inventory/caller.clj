@@ -7,7 +7,8 @@
             [clj-time.format :as f]
             [clojure.tools.logging :as log]
             [com.linkfluence.utils :as utils]
-            [com.linkfluence.es :as es])
+            [com.linkfluence.es :as es]
+            [cheshire.core :as json])
   (:use [clj-ssh.ssh]
         [clojure.java.io]))
 
@@ -71,6 +72,7 @@
           :state { :type "keyword"}
           :method { :type "keyword"}
           :host { :type "keyword"}
+          :exit { :type "integer"}
           :out {
             :type "text",
             :fields { :keyword { :type "keyword" :ignore_above 256 }}}
@@ -105,7 +107,8 @@
           :commands (str (:commands command) (:playbook command) (:module command) (:src command))
           :hosts (str (:hosts command))
           :out (str (when (:out command) (:out command)))
-          :err (str (when (:out command) (:err command)))})
+          :err (str (when (:err command) (:err command)))
+          :exit (str (when (:exit command) (:exit command)))})
           (catch clojure.lang.ExceptionInfo e
             (log/error "Error saving caller journal" (ex-data e)))
           (catch Exception e
@@ -118,13 +121,14 @@
         date-st (f/unparse cust-date-format date)
         datetime-st (f/unparse cust-datetime-format date)]
     (with-open [wrt (writer (str (:journal-path @caller-conf) "/journal-" date-st ".log" ) :append true)]
-      (.write wrt (str datetime-st
-                        " [" (name (:method command)) "]"
-                        " [" state "]"
-                        " - hosts : " (:hosts command)
-                        " - commands : " (:commands command)  (:playbook command) (:module command) (:src command)
-                        (when (:out command) (str " - out :") (:out command))
-                        (when (:err command) (str " - err :") (:err command))))
+      (.write wrt (json/generate-string { :date (f/unparse cust-datetime-format (t/now))
+        :method (:method command)
+        :state state
+        :commands (str (:commands command) (:playbook command) (:module command) (:src command))
+        :hosts (str (:hosts command))
+        :out (str (when (:out command) (:out command)))
+        :err (str (when (:err command) (:err command)))
+        :exit (str (when (:exit command) (:exit command)))}))
       (.newLine wrt))))
 
 (defn write-journal
@@ -214,8 +218,8 @@
   (let [session (mk-ssh-session command port)]
       (with-connection session
           (let [result (ssh session {:in (command-vec->string (:sudo command) (:commands command))})]
-            (add-to-journal (assoc command :id command-id :out (:out result)) "SENT"))))
-            (add-to-journal  (assoc command :id command-id :out "NONE") "FAILED")))
+            (add-to-journal (assoc command :id command-id :out (:out result) :err (:err result) :exit (:exit result)) "SENT"))))
+            (add-to-journal  (assoc command :id command-id :out "NONE" :err "No commands !" :exit 1) "FAILED")))
 
 (defn send-sftp-command
   "send ssh command"
@@ -279,7 +283,7 @@
         out (shell/sh "/usr/local/bin/ansible" "-i" (host-vec->list (:hosts command)) "-m" (:module command) "-a" (:commands command))]
     (when (:debug @caller-conf)
       (log/info "ansible return :" (:out out)))
-    (add-to-journal (assoc command :id command-id :out (:out out)) "SENT")))
+    (add-to-journal (assoc command :id command-id :out (:out out) :err (:err out) :exit (:exit out)) "SENT")))
 
 (defmethod execute-command :ansible-playbook [command]
   "Send ansible-playbook command"
@@ -287,7 +291,7 @@
         out (shell/sh "/usr/local/bin/ansible-playbook" "-i" (host-vec->list (:hosts command)) (:playbook command))]
     (when (:debug @caller-conf)
       (log/info "ansible-playbook return :" (:out out)))
-    (add-to-journal (assoc command :id command-id :out (:out out)) "SENT")))
+    (add-to-journal (assoc command :id command-id :out (:out out) :err (:err out) :exit (:exit out)) "SENT")))
 
 (defmethod execute-command :local [command]
   "Send local command"
