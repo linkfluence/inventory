@@ -280,14 +280,20 @@
     (when (:debug @caller-conf)
       (log/info "ansible return :" (:out out)))
     (add-to-journal (assoc command :id command-id :out (:out out)) "SENT")))
-
+    
 (defmethod execute-command :ansible-playbook [command]
   "Send ansible-playbook command"
   (let [command-id (swap! caller-counter inc)
-        out (shell/sh "/usr/local/bin/ansible-playbook" "-i" (host-vec->list (:hosts command)) (:playbook command))]
+        command-output (shell/sh "/usr/local/bin/ansible-playbook" "-i" (host-vec->list (:hosts command)) (:playbook command))]
     (when (:debug @caller-conf)
-      (log/info "ansible-playbook return :" (:out out)))
-    (add-to-journal (assoc command :id command-id :out (:out out)) "SENT")))
+      (log/info "ansible-playbook return :" (:out command-output)))
+    (add-to-journal (assoc command :id command-id :out (:out command-output) :err (:err command-output)) "SENT")
+  (when-not 
+    (= 
+     (:exit command-output) 0 )
+      (throw 
+       (Exception. 
+        (format "Ansible Exit code is different than 0. Err : %s" (:err command-output)))))))
 
 (defmethod execute-command :local [command]
   "Send local command"
