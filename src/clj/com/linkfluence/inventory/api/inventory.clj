@@ -92,8 +92,15 @@
   (POST "/hide/alias/:id" [id] (hide-event id true "alias"))
   (POST "/unhide/alias/:id" [id] (hide-event id false "alias"))
   ;;aggregation
-  (POST "/agg/tag/resource" [tags with-alias] (u/mk-resp 200 "success" {:data (inventory/get-aggregated-resources tags with-alias)}))
-  (POST "/agg/tag/resource/:tag" [tag tags with-alias] (u/mk-resp 200 "success" {:data (inventory/get-tag-value-from-aggregated-resources tag tags with-alias)}))
+  (POST "/agg/tag/resource" [tags with-alias filters]
+    (u/mk-resp 200 "success" {:data (inventory/get-aggregated-resources tags with-alias filters)}))
+  (POST "/agg/tag/resource/:tag" [tag tags with-alias filters]
+    (u/mk-resp 200 "success"
+      {:data (inventory/get-tag-value-from-aggregated-resources
+                  tag
+                  tags
+                  with-alias
+                  (inventory/get-resources filters with-alias))}))
   ;;tag
   (GET "/tag/resource" [] (u/mk-resp 200 "success" {:data (inventory/get-resource-tags-list)}))
   (GET "/tag/resource/:id" [id] (u/mk-resp 200 "success" {:data (inventory/get-tag-value-from-resources id)}))
