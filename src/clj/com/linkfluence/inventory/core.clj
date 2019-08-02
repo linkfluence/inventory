@@ -242,7 +242,12 @@
   ;save resources
   (store/save-map (assoc (:store @conf) :key "resources") @resources)
   ;save alias
-  (store/save-map (assoc (:store @conf) :key "aliases") @aliases))))
+  (store/save-map (assoc (:store @conf) :key "aliases") @aliases)
+
+  (doseq [view (:views @conf)]
+    (store/save-map
+      (assoc (:store @conf) :key (:name view))
+      (get-tag-value-from-aggregated-resources (:tag view) (:tags view) (:with-alias? view)))))))
 
 ;;group mgt
 (defn get-group-tags
