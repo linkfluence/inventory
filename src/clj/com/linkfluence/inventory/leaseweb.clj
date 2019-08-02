@@ -277,14 +277,15 @@
   (let [n (:net @lsw-conf)
         ifs (get-in @lsw-conf [:net :interface-name] "eth1")
         ifname (if (string? ifs) ifs "$IF_NAME")
-        sidkey (keyword (if (keyword? server-id) server-id (str server-id)))]
+        sidkey (keyword (if (keyword? server-id) server-id (str server-id)))
+        server-ref (get-in @lsw-inventory [sidkey :contract :reference] (str "lsw-" (name sidkey)))]
   (concat
     (get @lsw-conf :post-install-optional-cmd [])
     ["[ ! -d /root/.ssh ] && mkdir /root/.ssh"
      (str "echo \"" (slurp (:public-keys @lsw-conf)) "\" >> /root/.ssh/authorized_keys")
      "passwd --lock root"
      (str "echo "
-        (get-in @lsw-inventory [sidkey :contract :reference])
+        server-ref
          " > /etc/resource-id")
      (str "echo LSW > /etc/provider-id")]
      (if (get-in @lsw-conf [:net :configure-if] true)
@@ -296,7 +297,7 @@
         [])
     [(str "while ! ping -c 2 " (:inventory-host @lsw-conf) "; do echo 'Network still unreachable waiting...';sleep 5; done")
      (str "curl http://" (:inventory-host @lsw-conf) "/lsw/server/" (name sidkey) "/install/finish")
-     (str "curl http://" (:inventory-host @lsw-conf) "/provision/" (get-in @lsw-inventory [sidkey :contract :reference] (str "lsw-" (name sidkey))))
+     (str "curl http://" (:inventory-host @lsw-conf) "/provision/" server-ref)
      (str "echo postinstall-ended > /root/postinstall-flag")])))
 
 (defn clean-install-loop!
