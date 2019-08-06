@@ -47,6 +47,12 @@
   (POST "/event" [event] (put-event event))
   (POST "/events" [events] (put-events events))
 
+  ;;view
+  (GET "/view" [] (u/mk-resp 200 "success" {:data (inventory/list-views)}))
+  (GET "/view/:id" [id] (if-let [view (inventory/get-view (keyword id))]
+                            (u/mk-resp 200 "success" {:data view})
+                            (u/mk-resp 404 "error" {} "Group not found")))
+
   ;;group
   (GET "/group" [] (u/mk-resp 200 "success" {:data (inventory/list-groups)}))
   (GET "/group/:id" [id] (if-let [group (inventory/get-group (keyword id))]

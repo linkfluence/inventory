@@ -55,10 +55,7 @@
                                                    {:name "aws_service" :value "rds"}
                                                    {:name "dbname" :value (:dbname instance)}
                                                    {:name "dbinstance-identifier" :value (:dbinstance-identifier instance)}]
-                                                    (map (fn [[k v]]
-                                                          (when-let [t-value (k tags)]
-                                                            {:name v :value t-value}))
-                                                          (:tags-binding (get-conf))))))}))))
+                                                    (tags-binder tags))))}))))
 
 (defn update-aws-inventory!
   "update rds inventory"
@@ -83,7 +80,8 @@
               (swap! aws-inventory assoc-in [krds :availability-zone] (:availability-zone instance))
               (swap! aws-inventory assoc-in [krds :secondary-availability-zone] (:secondary-availability-zone instance))
               (swap! aws-inventory assoc-in [krds :backup-retention-period] (:backup-retention-period instance))
-              (swap! aws-inventory assoc-in [krds :dbinstance-class] (:dbinstance-class instance)))
+              (swap! aws-inventory assoc-in [krds :dbinstance-class] (:dbinstance-class instance))
+              (send-tags-request instance*))
             (swap! aws-inventory assoc krds (date-hack instance*)))
           (send-tags-request instance*)))
   (save-inventory)))
