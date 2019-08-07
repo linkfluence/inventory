@@ -64,6 +64,20 @@
               false))
     true))
 
+(defn tags-binder
+  [tags]
+  (concat
+    ;;binded tag
+    (map (fn [[k v]]
+        (when-let [t-value (k tags)]
+          {:name v :value t-value}))
+        (:tags-binding (get-conf)))
+    ;;copied tag
+    (map (fn [[k v]]
+            (when (nil? (k (:tags-binding (get-conf))))
+              {:name (name k) :value v}))
+            tags)))
+
 (defn get-tags-from-entity-map
   "return tags of an instance object"
   [entity]

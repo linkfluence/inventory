@@ -30,6 +30,11 @@
 
 (def ovh-queue-state (atom {}))
 
+(defn get-server
+  "Return server"
+  [id]
+  (get @ovh-inventory id nil))
+
 (defn in-queue?
     [server-name]
     (get @ovh-queue-state (keyword server-name) false))
@@ -148,17 +153,21 @@
     az)))
 
 (defn- send-tags-request
-  [server-name desc state]
+  ([server-name desc state]
+    (send-tags-request server-name desc state []))
+  ([server-name desc state tags]
   (when-not (ro?)
   (inventory/add-inventory-event {:type "resource"
                                   :provider "OVH"
                                   :id server-name
-                                  :tags [{:name "provider" :value "OVH"}
+                                  :tags (into []
+                                    (concat [{:name "provider" :value "OVH"}
                                          {:name "REGION" :value (ovh-region (:datacenter desc))}
                                          {:name "AZ" :value (:datacenter desc)}
                                          {:name "SHORT_AZ" :value (ovh-short-az (:datacenter desc))}
                                          {:name "publicIp" :value (:ip desc)}
-                                         {:name "state" :value state}]})))
+                                         {:name "state" :value state}]
+                                         tags))}))))
 
 (defn- delete-server!
   "Delete server from ovh inventory, this is cascaded to main inventory"
@@ -236,13 +245,12 @@
   ;;remove setup state from inventory
   (swap! ovh-inventory assoc-in [(keyword server-name) :setup] false)
   ;;switch server state
-  (inventory/add-inventory-event {:type "resource"
-                                  :id (name server-name)
-                                  :reinstall true
-                                  :default-host (name server-name)
-                                  :tags [{:name "state" :value "install_pending"}
-                                         {:name "privateIp" :value "" :delete true}
-                                         {:name "FQDN" :value "" :delete true}]})
+  (send-tags-request
+    (name server-name)
+    (get-server (keyword server-name))
+    "install_pending"
+     [{:name "privateIp" :value "" :delete true}
+      {:name "FQDN" :value "" :delete true}])
   ;;add server to queue to proceed reinstallation
   (.put ovh-queue [server-name "bootstrap" nil])
   (swap! ovh-queue-state assoc (keyword server-name) "bootstrap")))
@@ -328,10 +336,6 @@
           (server-operation! ev)))
       "ovh operation consumer")))
 
-(defn get-server
-  "Return server"
-  [id]
-  (get @ovh-inventory id nil))
 
 (defn get-server-id-with-ns
   [server-ns]

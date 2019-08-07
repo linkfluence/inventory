@@ -56,6 +56,8 @@
 (def groups (atom {}))
 ;;these are inventory alias
 (def aliases (atom {}))
+;;atom for views
+(def views (atom {}))
 ;;atom for conf
 (def conf (atom nil))
 
@@ -129,6 +131,135 @@
                            :id (keyword id)
                            :tags [{:name "hidden" :value (if hide "true" "false")}]})))
 
+(defn tag-matcher
+ "Check if an entity group/resource match a tag"
+ [entity tag]
+ (let [val (:value tag)
+       ma (cond
+           (or (string? val) (number? val))  (= val ((keyword (:name tag)) entity))
+           (coll? val) (.contains (vec val) ((keyword (:name tag)) entity)))]
+       (if-not (:not tag)
+           ma
+           (not ma))))
+
+(defn tags-matcher
+ "Check if an entity group/resource match the tags array"
+ [entity tags]
+ (if-not (= 0 (count tags))
+   (loop [tgs tags
+         m true]
+         (if m
+           (if-not (= 0 (count tgs))
+             (if (tag-matcher entity (first tgs))
+               (recur (next tgs) true)
+               false)
+               m)
+             false))
+   true))
+
+
+;;get resources
+(defn get-resources
+  "Just return resources atom filtered or not"
+  ([]
+    (get-resources [] false))
+  ([tags] (get-resources tags false))
+  ([tags with-alias?]
+      (let [ress (if with-alias? (merge @resources @aliases) @resources)]
+      (into {} (filter
+                    (fn [[k v]]
+                      (tags-matcher v (conj tags {:not true :value "true" :name "hidden"})))
+                     ress)))))
+
+(defn get-tag-value-from-aggregated-resources
+ "Return resource aggregated"
+ ([itag tags with-alias]
+   (get-tag-value-from-aggregated-resources itag tags with-alias (get-resources [] with-alias)))
+ ([itag tags with-alias ress]
+   (if (and
+           (spec/valid? (spec/coll-of string?) tags)
+           (spec/valid? (spec/or :k keyword? :s string?) itag)
+           (spec/valid? (spec/or :nil nil? :bool boolean?) with-alias))
+   (let [r-tags (rest tags)
+         cr-tags (count r-tags)]
+     ;; we treat first tag of the list
+     (if-let [tag (first tags)]
+       (let [step (loop [rest-ress ress
+                         inv {}]
+           ;;we walk across resource
+           (if-let [a (first rest-ress)]
+             (let [[k v] a]
+               (if-let [tv ((keyword tag) v)]
+                 (recur
+                   (rest rest-ress)
+                   (assoc-in
+                     inv
+                     [(keyword tag) (keyword tv) k] v))
+                 (recur
+                   (rest rest-ress)
+                   (assoc-in
+                   inv
+                   [(keyword tag) :undefined k] v
+                   ))))
+                 inv))]
+       (if-not (= 0 cr-tags)
+         (into {} (map
+           (fn [[k v]]
+             [k (into {} (map (fn [[kt vt]]
+                   [kt (get-tag-value-from-aggregated-resources itag r-tags with-alias vt)]) v))]) step))
+         (into {} (map
+           (fn [[k v]]
+             [k (into {} (map (fn [[kt vt]]
+                   [kt (filter
+                         (fn [x] (not (nil? x)))
+                         (map (fn [[kr vr]] ((keyword itag) vr)) vt)
+                  )]) v))]) step))))
+       ress))
+       {:error {:tags (spec/explain-str (spec/coll-of string?) tags)
+                :tag (spec/explain-str (spec/or :k keyword? :s string?) itag)
+                :with-alias (spec/explain-str (spec/or :nil nil? :bool boolean?) with-alias)}})))
+
+  (defn- aggregate-resources
+      [tags ress]
+          (if (spec/valid? (spec/coll-of string?) tags)
+      (let [r-tags (rest tags)
+            cr-tags (count r-tags)]
+        ;; we treat first tag of the list
+        (if-let [tag (first tags)]
+          (let [step (loop [rest-ress ress
+                            inv {}]
+              ;;we walk across resource
+              (if-let [a (first rest-ress)]
+                (let [[k v] a]
+                  (if-let [tv ((keyword tag) v)]
+                    (recur
+                      (rest rest-ress)
+                      (assoc-in
+                        inv
+                        [(keyword tag) (keyword tv) k] v))
+                    (recur
+                      (rest rest-ress)
+                      (assoc-in
+                      inv
+                      [(keyword tag) :undefined k] v
+                      ))))
+                    inv))]
+          (if-not (= 0 cr-tags)
+            (into {} (map
+              (fn [[k v]]
+                [k (into {} (map (fn [[kt vt]]
+                      [kt (aggregate-resources r-tags vt)]) v))]) step))
+            step))
+          ress))
+          {:error {:tags (spec/explain-str (spec/coll-of string?) tags)}}))
+
+  (defn get-aggregated-resources
+    "Return resource aggregated by tag"
+    ([tags with-alias?]
+          (get-aggregated-resources tags with-alias? []))
+    ([tags with-alias? filters]
+          (aggregate-resources tags (get-resources filters with-alias?))))
+
 (defn load-inventory
   []
   ;;applicable if we wan't to store something (ie : not during test)
@@ -141,7 +272,14 @@
     (reset! resources ress))
   ;load alias
   (when-let [aliass (store/load-map (assoc (:store @conf) :key "aliases"))]
-    (reset! aliases aliass))))
+    (reset! aliases aliass))
+  ;; generate views
+  (doseq [view (:views @conf)]
+      (if (:tag view)
+        (let [tag-view (get-tag-value-from-aggregated-resources (:tag view) (:tags view) (:with-alias? view))]
+          (swap! views assoc (keyword (:name view)) tag-view))
+        (let [res-view (get-aggregated-resources (:tags view) (:with-alias? view))]
+          (swap! views assoc (keyword (:name view)) res-view))))))
 
 ;;store inventory backup
 (defn save-inventory
@@ -154,33 +292,18 @@
   ;save resources
   (store/save-map (assoc (:store @conf) :key "resources") @resources)
   ;save alias
-  (store/save-map (assoc (:store @conf) :key "aliases") @aliases))))
+  (store/save-map (assoc (:store @conf) :key "aliases") @aliases)
 
-(defn tag-matcher
-  "Check if an entity group/resource match a tag"
-  [entity tag]
-  (let [val (:value tag)
-        ma (cond
-            (or (string? val) (number? val))  (= val ((keyword (:name tag)) entity))
-            (coll? val) (.contains (vec val) ((keyword (:name tag)) entity)))]
-        (if-not (:not tag)
-            ma
-            (not ma))))
-
-(defn tags-matcher
-  "Check if an entity group/resource match the tags array"
-  [entity tags]
-  (if-not (= 0 (count tags))
-    (loop [tgs tags
-          m true]
-          (if m
-            (if-not (= 0 (count tgs))
-              (if (tag-matcher entity (first tgs))
-                (recur (next tgs) true)
-                false)
-                m)
-              false))
-    true))
+  (doseq [view (:views @conf)]
+    (store/save-map
+      (assoc (:store @conf) :key (:name view))
+      (if (:tag view)
+        (let [tag-view (get-tag-value-from-aggregated-resources (:tag view) (:tags view) (:with-alias? view))]
+          (swap! views assoc (keyword (:name view)) tag-view)
+          tag-view)
+        (let [res-view (get-aggregated-resources (:tags view) (:with-alias? view))]
+          (swap! views assoc (keyword (:name view)) res-view)
+          res-view)))))))
 
 ;;group mgt
 (defn get-group-tags
@@ -194,6 +317,14 @@
 (defn list-groups
   []
   (into [] (map (fn [[k v]] k) @groups)))
+
+(defn get-view
+  [view-name]
+  (get @views (keyword view-name) nil))
+
+(defn list-views
+  []
+ (into [] (map (fn [[k v]] k) @views)))
 
 (defn count-groups
   ([] (count @groups))
@@ -441,92 +572,6 @@
     [id]
     (get @aliases (keyword id) nil))
 
-(defn- aggregate-resources
-    [tags ress]
-        (if (spec/valid? (spec/coll-of string?) tags)
-    (let [r-tags (rest tags)
-          cr-tags (count r-tags)]
-      ;; we treat first tag of the list
-      (if-let [tag (first tags)]
-        (let [step (loop [rest-ress ress
-                          inv {}]
-            ;;we walk across resource
-            (if-let [a (first rest-ress)]
-              (let [[k v] a]
-                (if-let [tv ((keyword tag) v)]
-                  (recur
-                    (rest rest-ress)
-                    (assoc-in
-                      inv
-                      [(keyword tag) (keyword tv) k] v))
-                  (recur
-                    (rest rest-ress)
-                    (assoc-in
-                    inv
-                    [(keyword tag) :undefined k] v
-                    ))))
-                  inv))]
-        (if-not (= 0 cr-tags)
-          (into {} (map
-            (fn [[k v]]
-              [k (into {} (map (fn [[kt vt]]
-                    [kt (aggregate-resources r-tags vt)]) v))]) step))
-          step))
-        ress))
-        {:error {:tags (spec/explain-str (spec/coll-of string?) tags)}}))
-
-(defn get-aggregated-resources
-  "Return resource aggregated by tag"
-  [tags with-alias?]
-        (aggregate-resources tags (get-resources [] with-alias?)))
-
-(defn get-tag-value-from-aggregated-resources
-  "Return resource aggregated"
-  ([itag tags with-alias]
-    (get-tag-value-from-aggregated-resources itag tags with-alias (get-resources [] with-alias)))
-  ([itag tags with-alias ress]
-    (if (and
-            (spec/valid? (spec/coll-of string?) tags)
-            (spec/valid? (spec/or :k keyword? :s string?) itag)
-            (spec/valid? (spec/or :nil nil? :bool boolean?) with-alias))
-    (let [r-tags (rest tags)
-          cr-tags (count r-tags)]
-      ;; we treat first tag of the list
-      (if-let [tag (first tags)]
-        (let [step (loop [rest-ress ress
-                          inv {}]
-            ;;we walk across resource
-            (if-let [a (first rest-ress)]
-              (let [[k v] a]
-                (if-let [tv ((keyword tag) v)]
-                  (recur
-                    (rest rest-ress)
-                    (assoc-in
-                      inv
-                      [(keyword tag) (keyword tv) k] v))
-                  (recur
-                    (rest rest-ress)
-                    (assoc-in
-                    inv
-                    [(keyword tag) :undefined k] v
-                    ))))
-                  inv))]
-        (if-not (= 0 cr-tags)
-          (into {} (map
-            (fn [[k v]]
-              [k (into {} (map (fn [[kt vt]]
-                    [kt (get-tag-value-from-aggregated-resources itag r-tags with-alias vt)]) v))]) step))
-          (into {} (map
-            (fn [[k v]]
-              [k (into {} (map (fn [[kt vt]]
-                    [kt (filter
-                          (fn [x] (not (nil? x)))
-                          (map (fn [[kr vr]] ((keyword itag) vr)) vt)
-                   )]) v))]) step))))
-        ress))
-        {:error {:tags (spec/explain-str (spec/coll-of string?) tags)
-                 :tag (spec/explain-str (spec/or :k keyword? :s string?) itag)
-                 :with-alias (spec/explain-str (spec/or :nil nil? :bool boolean?) with-alias)}})))
 
 (defn get-tag-value-from-resources
   ([tag]

@@ -47,6 +47,12 @@
   (POST "/event" [event] (put-event event))
   (POST "/events" [events] (put-events events))
 
+  ;;view
+  (GET "/view" [] (u/mk-resp 200 "success" {:data (inventory/list-views)}))
+  (GET "/view/:id" [id] (if-let [view (inventory/get-view (keyword id))]
+                            (u/mk-resp 200 "success" {:data view})
+                            (u/mk-resp 404 "error" {} "Group not found")))
+
   ;;group
   (GET "/group" [] (u/mk-resp 200 "success" {:data (inventory/list-groups)}))
   (GET "/group/:id" [id] (if-let [group (inventory/get-group (keyword id))]
@@ -92,8 +98,15 @@
   (POST "/hide/alias/:id" [id] (hide-event id true "alias"))
   (POST "/unhide/alias/:id" [id] (hide-event id false "alias"))
   ;;aggregation
-  (POST "/agg/tag/resource" [tags with-alias] (u/mk-resp 200 "success" {:data (inventory/get-aggregated-resources tags with-alias)}))
-  (POST "/agg/tag/resource/:tag" [tag tags with-alias] (u/mk-resp 200 "success" {:data (inventory/get-tag-value-from-aggregated-resources tag tags with-alias)}))
+  (POST "/agg/tag/resource" [tags with-alias filters]
+    (u/mk-resp 200 "success" {:data (inventory/get-aggregated-resources tags with-alias filters)}))
+  (POST "/agg/tag/resource/:tag" [tag tags with-alias filters]
+    (u/mk-resp 200 "success"
+      {:data (inventory/get-tag-value-from-aggregated-resources
+                  tag
+                  tags
+                  with-alias
+                  (inventory/get-resources filters with-alias))}))
   ;;tag
   (GET "/tag/resource" [] (u/mk-resp 200 "success" {:data (inventory/get-resource-tags-list)}))
   (GET "/tag/resource/:id" [id] (u/mk-resp 200 "success" {:data (inventory/get-tag-value-from-resources id)}))

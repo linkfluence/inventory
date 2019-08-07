@@ -28,7 +28,7 @@
                  ;;internal cloud lib
                  [luhhujbb/clj-aliyun "0.2.4"]
                  [luhhujbb/clj-ovh "0.1.13"]
-                 [luhhujbb/leaseweb "0.3.6"]
+                 [luhhujbb/leaseweb "0.3.7"]
                  ;;scheduling
                  [jarohen/chime "0.2.2"]
                  ;;Storage
