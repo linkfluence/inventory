@@ -285,3 +285,17 @@ Unhide a alias with id :id
     method : DELETE
 
 Delete an alias specified by :id
+
+## List Views
+
+    path : /inventory/view
+    method : GET
+
+Retrieve List of all alias
+
+## return a view
+
+    path : /inventory/view/:view_id
+    method : GET
+
+Retrieve alias speciefied by : view_id

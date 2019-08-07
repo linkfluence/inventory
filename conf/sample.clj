@@ -149,7 +149,9 @@
  :inventory {:store {:file {:bucket "/etc/inventory"}
                      :s3 {:bucket "my_bucket"}}
              :master "my_master_inventory_host" ;; only usefull when main inventory is ro, and some handler are not
-           }
+             ;;views are pre evaluated aggregations, they are stored and rebuild each times inventory is saved 
+            :views [{:tag "privateIp" :tags ["REGION" "Name"] :name "my-company-tag-view"}
+                    {:tags ["REGION" "ENV" "Name"] :name "my-company-resource-view"}]}
  :app {:store {:file {:bucket "/etc/inventory"}
                      :s3 {:bucket "my_bucket"}
                  :key "apps"}
