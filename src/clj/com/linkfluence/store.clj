@@ -197,7 +197,7 @@
                  (:bucket consul)
                  (consul/default-bucket))
          path (:key store)]
-       (consul/get buck path true)))
+       (consul/get buck path (:fail-fast consul))))
 
 (defn load-map
  [store]
