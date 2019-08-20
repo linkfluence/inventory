@@ -40,8 +40,9 @@
         (doseq [mirror (:mirrors @conf)]
           (try
             (envoy/map->consul
-              (envoy/url-builder
+              ((envoy/url-builder
                 (select-keys mirror [:hosts :port :secure?]))
+                consul-path)
               {kw content}
               {:serializer :json :overwrite? true})
               (catch Exception e
