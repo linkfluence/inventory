@@ -29,10 +29,23 @@
      (let [clean-path (str (clean-slash bucket) "/" (clean-slash path))
            build-url (envoy/url-builder (select-keys @conf [:hosts :port :secure?]))
            [consul-path kw] (get-last-fragment clean-path)]
+    ;;Base store synchronous sync
     (try
         (envoy/map->consul (build-url consul-path) {kw content} {:serializer :json :overwrite? true})
       (catch Exception e
-        (log/info "Can't write data to consul" path e))))))
+        (log/info "Can't write data to consul" path e)))
+    ;;Mirrors are asynchronously synced
+    (future
+      (when (some? (:mirrors @conf)))
+        (doseq [mirror (:mirrors @conf)]
+          (try
+            (envoy/map->consul
+              (envoy/url-builder
+                (select-keys mirror [:hosts :port :secure?]))
+              {kw content}
+              {:serializer :json :overwrite? true})
+              (catch Exception e
+                (log/info "Can't write to consul mirrors" path e))))))))
 
 (defn get
   ([path]
