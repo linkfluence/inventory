@@ -1,6 +1,7 @@
 (ns com.linkfluence.store.consul
   (:require [oss.core :as oss]
             [clojure.tools.logging :as log]
+            [com.linkfluence.utils :refer [timeout]]
             [envoy.core :as envoy]
             [clojure.string :as s]
             [clojure.data :as d]))
@@ -38,6 +39,8 @@
     (future
       (when (some? (:mirrors @conf)))
         (doseq [mirror (:mirrors @conf)]
+          (timeout (or (:timeout mirror) 3000)
+            (fn []
           (try
             (envoy/map->consul
               ((envoy/url-builder
@@ -46,7 +49,7 @@
               {kw content}
               {:serializer :json :overwrite? true})
               (catch Exception e
-                (log/info "Can't write to consul mirrors" path e))))))))
+                (log/info "Can't write to consul mirrors" path e))))))))))
 
 (defn get
   ([path]

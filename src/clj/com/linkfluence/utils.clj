@@ -89,6 +89,14 @@
         rand-char (fn [] (nth chars (.nextInt random (count chars))))]
         (apply str (take length (repeatedly rand-char)))))
 
+(defn timeout [timeout-ms callback]
+   (let [fut (future (callback))
+         ret (deref fut timeout-ms ::timed-out)]
+     (when (= ret ::timed-out)
+       (future-cancel fut))
+     ret))
+
+
 (defn configure!
   [utils-conf]
   (reset! conf utils-conf))
