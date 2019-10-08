@@ -21,8 +21,9 @@
                  [clj-http "3.7.0"]
                  [digest "1.4.4"]
                  ;;json yaml mgt
-                 [cheshire "5.8.0"]
-                 [circleci/clj-yaml "0.5.5"]
+                 [cheshire "5.9.0"]
+                 [org.flatland/ordered "1.5.7"]
+                 [circleci/clj-yaml "0.5.5" :exclusions [org.flatland/ordered]]
                  ;;aws
                  [amazonica "0.3.127"]
                  ;;internal cloud lib
