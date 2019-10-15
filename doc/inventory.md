@@ -138,6 +138,18 @@ tags is an array of tags, a tag has the following structure:
 
 Add tags to a group, and recursively to all resource member of this group (ie : which tag group value is :id)
 
+## Add some resources to a group
+
+    path : /inventory/group/:id/addresources
+    method : POST
+    params : resources
+
+resources is an array of resource id (String)
+
+    {
+      "resources":["resource_id_1","resource_id_2"]
+    }
+
 ## Delete a group
 
   path : /inventory/group/:id
