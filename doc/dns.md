@@ -17,6 +17,32 @@ Return list of zone fils in the current server
 Return state success with code 200, if db exists.
 Return state error with code 404, if db doesn't exist
 
+## Create a zone
+
+    path : /dns/zone/create/:zonename
+    method : PUT
+    params : zone
+
+Create a zone with name :zonename (ie: example.com)
+
+A zone is an object with the following strutcure
+
+    {
+      :type : master/forward/slave
+      :notify: yes/no boolean
+      :also-notify : semi-colon separated ip list
+      :forwarders : semi-colon separated ip list
+      :forward (optional) only | first
+      :masters :semi-colon separated ip list
+    }
+
+## Delete a zone
+
+    path : /dns/zone/:zonename
+    method : DELETE
+
+Delete a zone identified by :zonename
+
 ## List records into a db
 
     path : /dns/records/:db
