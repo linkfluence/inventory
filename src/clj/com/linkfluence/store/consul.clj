@@ -9,6 +9,8 @@
 
 (def conf (atom nil))
 
+(def consul-lock (atom {}))
+
 (defn clean-slash
     [path]
     (s/join "/"(remove #{""} (s/split path #"/"))))
@@ -39,15 +41,17 @@
     (future
       (when (some? (:mirrors @conf)))
         (doseq [mirror (:mirrors @conf)]
-          (timeout (or (:timeout mirror) 3000)
+          (when-not ((str mirror) @consul-lock)
             (fn []
           (try
+            (swap! consul-lock assoc (str mirror) true)
             (envoy/map->consul
               ((envoy/url-builder
                 (select-keys mirror [:hosts :port :secure?]))
                 consul-path)
               {kw content}
               {:serializer :json :overwrite? true})
+              (swap! consul-lock dissoc (str mirror))
               (catch Exception e
                 (log/info "Can't write to consul mirrors" path e))))))))))
 
