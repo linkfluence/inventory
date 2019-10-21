@@ -41,17 +41,17 @@
     (future
       (when (some? (:mirrors @conf)))
         (doseq [mirror (:mirrors @conf)]
-          (when-not ((str mirror) @consul-lock)
+          (when-not ((str mirror path) @consul-lock)
             (fn []
           (try
-            (swap! consul-lock assoc (str mirror) true)
+            (swap! consul-lock assoc (str mirror path) true)
             (envoy/map->consul
               ((envoy/url-builder
                 (select-keys mirror [:hosts :port :secure?]))
                 consul-path)
               {kw content}
               {:serializer :json :overwrite? true})
-              (swap! consul-lock dissoc (str mirror))
+              (swap! consul-lock dissoc (str mirror path))
               (catch Exception e
                 (log/info "Can't write to consul mirrors" path e))))))))))
 
