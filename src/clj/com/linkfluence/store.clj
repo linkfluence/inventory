@@ -196,8 +196,11 @@
          buck (if-not (nil? (:bucket consul))
                  (:bucket consul)
                  (consul/default-bucket))
-         path (:key store)]
-       (consul/get buck path (:fail-fast consul))))
+         path (:key store)
+         res (consul/get buck path (:fail-fast consul))]
+       (if (= res "")
+            nil
+            res)))
 
 (defn load-map
  [store]
