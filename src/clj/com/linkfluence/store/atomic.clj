@@ -5,7 +5,7 @@
 ;;Elasticsearch
 ;;Hbase
 ;;Consul
-(defn atomic-store
+(defn atomic-save
   "Save an object atomically"
   [store id content])
 
