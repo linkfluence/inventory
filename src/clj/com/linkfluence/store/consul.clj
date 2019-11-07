@@ -3,11 +3,22 @@
             [clojure.tools.logging :as log]
             [com.linkfluence.utils :refer [timeout]]
             [envoy.core :as envoy]
+            [envoy.tools :refer [pre-serialize post-deserialize]]
             [clojure.string :as s]
             [clojure.data :as d]))
 
 
 (def conf (atom nil))
+
+;; this should help consul storage for storing stuffs
+(def simplify? (atom {:default false}))
+
+(defn simplify-store [bucket path]
+  (swap! simplify? assoc (str bucket path) true))
+
+(defn standard-store
+  [bucket path]
+  (swap! simplify? assoc (str bucket path) false))
 
 (def consul-lock (atom {}))
 
@@ -49,8 +60,10 @@
               ((envoy/url-builder
                 (select-keys mirror [:hosts :port :secure?]))
                 consul-path)
-              {kw content}
-              {:serializer :json :overwrite? true})
+              (pre-serialize
+                {kw content}
+                :json)
+              {:overwrite? true})
               (swap! consul-lock dissoc (str mirror path))
               (catch Exception e
                 (log/info "Can't write to consul mirrors" path e))))))))))
@@ -65,7 +78,9 @@
             build-url (envoy/url-builder (select-keys @conf [:hosts :port :secure?]))
             [consul-path _] (get-last-fragment clean-path)]
     (try
-        (let [res (envoy/consul->map (build-url consul-path) {:offset clean-path :serializer :json})]
+        (let [res (post-deserialize
+                    (envoy/consul->map (build-url consul-path) {:offset clean-path})
+                    :json)]
             (cond
                 (and fail-fast (nil? res)) (throw (Exception. (str "Can't load resource " clean-path " - " consul-path)))
                 (nil? res) ""

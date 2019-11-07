@@ -33,7 +33,7 @@
                  [jarohen/chime "0.2.2"]
                  ;;Storage
                  [luhhujbb/oss-117 "0.1.3"] ;;ali cloud
-                 [linkfluence/envoy "0.2.5"] ;;consul
+                 [luhhujbb/envoy "0.3.0"] ;;consul
                  ;;Networking automation
                  [clj-ssh "0.5.14"]
                  [commons-net/commons-net "3.5"]
