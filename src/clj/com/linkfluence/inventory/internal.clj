@@ -100,7 +100,8 @@
                                   :tags []
                                   :delete true})
   ;;save inventory
-  (swap! internal-inventory dissoc (keyword uid)))
+  (swap! internal-inventory dissoc (keyword uid))
+  (save-inventory))
 
 (defn- update-resource!
   [resource]
