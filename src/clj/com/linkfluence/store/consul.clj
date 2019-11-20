@@ -45,7 +45,9 @@
            [consul-path kw] (get-last-fragment clean-path)]
     ;;Base store synchronous sync
     (try
-        (envoy/map->consul (build-url consul-path) {kw content} {:serializer :json :overwrite? true})
+        (envoy/map->consul (build-url consul-path)
+          (pre-serialize {kw content} :json)
+          {:overwrite? true})
       (catch Exception e
         (log/info "Can't write data to consul" path e)))
     ;;Mirrors are asynchronously synced
