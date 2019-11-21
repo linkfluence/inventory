@@ -21,6 +21,13 @@
   ([network netmask address]
     (.isInRange (get-subnet-info network netmask) address)))
 
+(defn get-cidr
+  [network netmask]
+    (str "/"
+      (last (.split
+      (.getCidrSignature (get-subnet-info network netmask))
+      "/"))))
+
 (defn get-broadcast-addr
   ([cidr-address]
     (.getBroadcastAddress (get-subnet-info cidr-address)))

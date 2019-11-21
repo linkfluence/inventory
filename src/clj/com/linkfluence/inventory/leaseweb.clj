@@ -13,7 +13,8 @@
             [chime :refer [chime-at]]
             [clj-time.core :as t]
             [clj-time.periodic :refer [periodic-seq]]
-            [clojure.spec.alpha :as spec])
+            [clojure.spec.alpha :as spec]
+            [clj-yaml.core :as yaml])
   (:import [java.io File]
            [java.util.concurrent LinkedBlockingQueue]))
 
@@ -60,14 +61,16 @@
 (defn load-inventory!
   []
   ;;default use s3
+  (when-not @test
   (when-let [inventory (store/load-map (assoc (:store @lsw-conf) :key (str (:key (:store @lsw-conf)) "-inventory")))]
-    (reset! lsw-inventory inventory)))
+    (reset! lsw-inventory inventory))))
 
 (defn load-pscheme!
   []
   ;;default use s3
+  (when-not @test
   (when-let [pscheme (store/load-map (assoc (:store @lsw-conf) :key (str (:key (:store @lsw-conf)) "-pscheme")))]
-    (reset! lsw-pscheme pscheme)))
+    (reset! lsw-pscheme pscheme))))
 
 (defn save-pscheme
   "Save on both local file and s3"
@@ -241,6 +244,23 @@
    (str "ifconfig " ifname " up")
    "sleep 20"])
 
+(defn- configure-netplan-if
+  [ifname server-id n]
+  (let [nfile (str "/etc/netplan/02-" ifname ".yaml")
+        netplan-conf {:network {
+                       :version 2
+                       :ethernets {
+                         (keyword ifname) {
+                           :dhcp4 "no"
+                           :addresses [
+                           (str
+                             (get-available-address server-id)
+                             (net/get-cidr (:network n) (:netmask n)))
+                           ]}}}}]
+  [(str "echo \"" (yaml/generate-string netplan-conf)"\" > " nfile)
+   (str "netplan try")
+   "sleep 20"]))
+
 (defn- configure-red-hat-if
   [ifname server-id n]
   [(str "echo \"DEVICE=" ifname "\" >> /etc/sysconfig/network-scripts/ifcfg-" ifname)
@@ -260,6 +280,7 @@
   (condp  = (get @lsw-conf :base-distrib :debian)
       :debian (configure-debian-if ifname server-id n)
       :red-hat (configure-red-hat-if ifname server-id n)
+      :netplan (configure-netplan-if ifname server-id n)
       []))
 
 (defn- choose-if
