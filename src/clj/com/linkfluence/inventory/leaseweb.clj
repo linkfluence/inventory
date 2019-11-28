@@ -258,7 +258,7 @@
                              (net/get-cidr (:network n) (:netmask n)))
                            ]}}}}]
   [(str "echo \"" (yaml/generate-string netplan-conf)"\" > " nfile)
-   (str "netplan try")
+   (str "netplan apply")
    "sleep 20"]))
 
 (defn- configure-red-hat-if
