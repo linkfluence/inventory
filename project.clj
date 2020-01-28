@@ -11,12 +11,12 @@
                  [org.slf4j/jcl-over-slf4j "1.7.19"]
                  [log4j "1.2.17"]
                  ;; time mgt
-                 [clj-time "0.13.0"]
+                 [clj-time "0.15.2"]
                  ;; web service
-                 [compojure "1.5.2"]
-                 [ring "1.5.1"]
-                 [ring-middleware-format "0.7.2"]
-                 [bk/ring-gzip "0.1.1"]
+                 [compojure "1.6.1"]
+                 [ring "1.8.0"]
+                 [ring-middleware-format "0.7.4"]
+                 [bk/ring-gzip "0.3.0"]
                  ;;for proxy
                  [clj-http "3.7.0"]
                  [digest "1.4.4"]
@@ -24,7 +24,7 @@
                  [cheshire "5.9.0"]
                  [clj-commons/clj-yaml "0.7.0"]
                  ;;aws
-                 [amazonica "0.3.127"]
+                 [amazonica "0.3.152"]
                  ;;internal cloud lib
                  [luhhujbb/clj-aliyun "0.2.4"]
                  [luhhujbb/clj-ovh "0.1.13"]
@@ -35,10 +35,10 @@
                  [luhhujbb/oss-117 "0.1.3"] ;;ali cloud
                  [luhhujbb/envoy "0.3.1"] ;;consul
                  ;;Networking automation
-                 [clj-ssh "0.5.14"]
-                 [commons-net/commons-net "3.5"]
+                 [clj-commons/clj-ssh "0.5.15"]
+                 [commons-net/commons-net "3.6"]
                  ;;journal storer, esfs object saver
-                 [cc.qbits/spandex "0.5.2"]
+                 [cc.qbits/spandex "0.7.4"]
                  ;;conf template (dns conf generation)
                  [luhhujbb/clostache "1.5.0"]]
   :main ^:skip-aot com.linkfluence.starter

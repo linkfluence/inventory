@@ -64,7 +64,6 @@
 ;;
 (def es-mappings
   {
-      :command {
         :properties {
           :commands {
             :type "text",
@@ -82,7 +81,7 @@
           :date {
             :type "date"
             :format "yyyy-MM-dd' 'HH:mm:ss"
-          }}}})
+          }}})
 
 (defn write-journal->es
     "write jouranl to es"
@@ -100,7 +99,6 @@
       (es/index-doc
         (:conn @es-client)
         "caller-journal"
-        "command"
         { :date (f/unparse cust-datetime-format (t/now))
           :method (:method command)
           :state state

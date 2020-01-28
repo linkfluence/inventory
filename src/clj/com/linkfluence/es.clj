@@ -30,8 +30,8 @@
 
 ;; missing bulk op in elastisch
 (def special-operation-keys [:_doc_as_upsert
+                            :_type
                              :_index
-                             :_type
                              :_id
                              :_retry_on_conflict
                              :_routing
@@ -270,9 +270,9 @@
   (delete-by-query conn index {:term {:_id doc-id}}))
 
 (defn index-doc
-  [conn index type doc]
+  [conn index doc]
   (s/request conn {
-    :url [index type]
+    :url [index :_doc]
     :method :post
     :body doc}))
 
