@@ -15,6 +15,7 @@
             [com.linkfluence.inventory.provision :as provision]
             [com.linkfluence.inventory.deploy :as deploy]
             [com.linkfluence.inventory.core :as inventory]
+            [com.linkfluence.inventory.prometheus.core :as prometheus]
             [com.linkfluence.dns-cleaner :as dns-cleaner]
             [com.linkfluence.utils :as utils]
             [clojure.tools.logging :as log]
@@ -79,7 +80,9 @@
   (when-not (nil? (:app conf))
     (app/configure! (set-ro :app conf)))
   (when-not (nil? (:dns-cleaner conf))
-    (dns-cleaner/configure! (set-ro :dns-cleaner conf))))
+    (dns-cleaner/configure! (set-ro :dns-cleaner conf)))
+  (when-not (nil? (:prometheus conf))
+    (prometheus/configure! (set-ro :prometheus conf))))
   ;;load conf, etc
 
 (defn shutdown

@@ -34,6 +34,8 @@
                  ;;Storage
                  [luhhujbb/oss-117 "0.1.3"] ;;ali cloud
                  [luhhujbb/envoy "0.3.1"] ;;consul
+                 ;;prometheus
+                 [online.duevel/clometheus "0.1.0"]
                  ;;Networking automation
                  [clj-commons/clj-ssh "0.5.15"]
                  [commons-net/commons-net "3.6"]
