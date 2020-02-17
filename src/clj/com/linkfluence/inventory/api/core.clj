@@ -55,4 +55,4 @@
 (defn configure!
   [{:keys [host port] :or {host "127.0.0.1" port 8080} :as api-conf}]
   (reset! conf api-conf)
-  (defonce server (run-jetty #'handler {:port (:port api-conf) :host (:host api-conf) :join? false})))
+  (defonce server (run-jetty #'handler {:port port :host host :join? false})))

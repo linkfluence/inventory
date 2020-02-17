@@ -19,24 +19,49 @@
 ;;mai api conf
 (def conf (atom {}))
 
-(def count-resources-gauge
+(def count-resources-gauge (atom nil))
+
+(defn init-count-resources-gauge!
+  [conf]
+  (reset! count-resources-gauge
     (c/gauge
       "inventory_resources_count"
       :description
       "resources count for a specific tag"
-      :labels ["inventory_tag" "inventory_tag_value"]))
+      :labels (map lower-case (:tags conf)))))
+
+(defn flat-agg
+  [agg-ress tags]
+  (let [ktags (map keyword tags)
+        root-tag (first (keys agg-ress))
+        rtags-values (root-tag agg-ress)]
+  (if (= 1 (count tags))
+    (map (fn [[k v]]
+      {:labels {(lower-case (name root-tag)) (lower-case (name k))}
+       :ct (count v)})
+       rtags-values)
+  (mapcat
+    (fn [[k v]]
+      (let [sub-buckets (flat-agg v (rest tags))]
+        (map
+          (fn [{:keys [labels ct]}]
+            {:ct ct
+             :labels (merge
+                        labels
+                        {(lower-case (name root-tag)) (lower-case (name k))})})
+            sub-buckets)))
+      rtags-values))))
 
 (defn generate-response
   []
-  (doseq [tag (:tags @conf)]
-    (let [tags-stats (inventory/get-tags-stats-from-resources tag)]
-        (doseq [[k v] tags-stats]
-            (c/set! count-resources-gauge v
-              :labels {"inventory_tag"
-                         (lower-case (name tag))
-                       "inventory_tag_value"
-                         (lower-case (name k))}))))
-  (txt/metrics-response))
+    (let [agg-ress (inventory/get-aggregated-resources (:tags @conf) false [])
+          prom-agg (flat-agg agg-ress (:tags @conf))]
+          (doseq [ress-bucket prom-agg]
+            (c/set!
+              @count-resources-gauge
+              (:ct ress-bucket)
+              :labels (:labels ress-bucket)))
+  (txt/metrics-response)))
 
 (defroutes app-routes
   (GET "/metrics" [] (generate-response)))
@@ -48,4 +73,5 @@
 (defn configure!
   [{:keys [host port] :or {host "127.0.0.1" port 8081} :as prom-conf}]
   (reset! conf prom-conf)
-  (defonce server (run-jetty #'handler {:port (:port prom-conf) :host (:host prom-conf) :join? false})))
+  (init-count-resources-gauge! prom-conf)
+  (defonce server (run-jetty #'handler {:port port :host host :join? false})))
