@@ -54,6 +54,8 @@
 
 (defn generate-response
   []
+    (c/clear! c/default-registry)
+    (init-count-resources-gauge! @conf)
     (let [agg-ress (inventory/get-aggregated-resources (:tags @conf) false [])
           prom-agg (flat-agg agg-ress (:tags @conf))]
           (doseq [ress-bucket prom-agg]
@@ -73,5 +75,4 @@
 (defn configure!
   [{:keys [host port] :or {host "127.0.0.1" port 8081} :as prom-conf}]
   (reset! conf prom-conf)
-  (init-count-resources-gauge! prom-conf)
   (defonce server (run-jetty #'handler {:port port :host host :join? false})))
