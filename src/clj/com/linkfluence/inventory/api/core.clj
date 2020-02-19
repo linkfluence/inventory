@@ -44,7 +44,8 @@
   (context "/inventory" [] inventory/INVENTORY)
   (context "/deploy" [] deploy/DEPLOY)
   (context "/provision" [] provision/PROVISION)
-  (context "/lsw" [] lsw/LSW))
+  (context "/lsw" [] lsw/LSW)
+  (GET "/favicon.ico" [] {:status 204}))
 
 (def handler (-> app-routes
                  (wrap-restful-params :formats [:json-kw])

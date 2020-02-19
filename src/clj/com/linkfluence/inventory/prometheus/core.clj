@@ -11,7 +11,8 @@
             [clometheus.txt-format :as txt]
             ;;import api handler
             [com.linkfluence.inventory.core :as inventory]
-            [com.linkfluence.utils :as u]))
+            [com.linkfluence.utils :as u])
+    (:import [java.io Writer StringWriter]))
 
 ; @author Jean-Baptiste Besselat
 ; @Copyright Adot SAS 2020
@@ -21,6 +22,8 @@
 
 (def count-resources-gauge (atom nil))
 
+(defonce inventory-registry (c/registry))
+
 (defn init-count-resources-gauge!
   [conf]
   (reset! count-resources-gauge
@@ -28,7 +31,8 @@
       "inventory_resources_count"
       :description
       "resources count for a specific tag"
-      :labels (map lower-case (:tags conf)))))
+      :labels (map lower-case (:tags conf))
+      :registry inventory-registry)))
 
 (defn flat-agg
   [agg-ress tags]
@@ -52,9 +56,18 @@
             sub-buckets)))
       rtags-values))))
 
+(defn metrics-response
+  "Generate standard metrics & inventory gauge"
+  []
+  {:headers {"Content-Type" "text/plain; version=0.0.4; charset=utf-8"}
+   :status  200
+   :body    (str
+              (:body (txt/metrics-response inventory-registry))
+              (:body (txt/metrics-response)))})
+
 (defn generate-response
   []
-    (c/clear! c/default-registry)
+    (c/clear! inventory-registry)
     (init-count-resources-gauge! @conf)
     (let [agg-ress (inventory/get-aggregated-resources (:tags @conf) false [])
           prom-agg (flat-agg agg-ress (:tags @conf))]
@@ -63,10 +76,11 @@
               @count-resources-gauge
               (:ct ress-bucket)
               :labels (:labels ress-bucket)))
-  (txt/metrics-response)))
+        (metrics-response)))
 
 (defroutes app-routes
-  (GET "/metrics" [] (generate-response)))
+  (GET "/metrics" [] (generate-response))
+  (GET "/favicon.ico" [] {:status 204}))
 
 (def handler (-> app-routes
                  (wrap-content-type)
