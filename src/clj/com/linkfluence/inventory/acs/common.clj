@@ -2,7 +2,8 @@
   (:require [aliyuncs.core :as acs]
             [clojure.string :as str]
             [clj-time.core :as t]
-            [cheshire.core :as json]))
+            [cheshire.core :as json]
+            [com.linkfluence.utils :as u]))
 
 (def conf (atom nil))
 
@@ -20,12 +21,8 @@
   []
   (:read-only @conf))
 
-(defn tags-binder
-  [tags]
-  (map (fn [[k v]]
-        (when-let [t-value (k tags)]
-          {:name v :value t-value}))
-        (:tags-binding (get-conf))))
+(def tags-binder
+  (partial u/tags-binder (:tags-binding (get-conf))))
 
 (defn date-hack
   [data]

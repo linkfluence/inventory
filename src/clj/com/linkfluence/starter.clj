@@ -7,6 +7,7 @@
             [com.linkfluence.inventory.aws :as aws]
             [com.linkfluence.inventory.app :as app]
             [com.linkfluence.inventory.acs :as acs]
+            [com.linkfluence.inventory.gcp :as gcp]
             [com.linkfluence.inventory.leaseweb :as lsw]
             [com.linkfluence.inventory.internal :as internal]
             [com.linkfluence.dns :as dns]
@@ -66,6 +67,8 @@
     (aws/configure! (set-ro :aws conf)))
   (when-not (nil? (:acs conf))
     (acs/configure! (set-ro :acs conf)))
+  (when-not (nil? (:gcp conf))
+    (gcp/configure! (set-ro :gcs conf)))
   ;;inventory for baremetal/vm server internal
   (when-not (nil? (:internal conf))
     (internal/configure! (set-ro :internal conf)))
@@ -117,6 +120,8 @@
                             (lsw/start!))
                           (when-not (nil? (:acs conf))
                             (acs/start!))
+                          (when-not (nil? (:gcp conf))
+                            (gcp/configure! (set-ro :gcp conf)))
                           (when-not (nil? (:app conf))
                             (app/start!)))))]
                   (.addShutdownHook (Runtime/getRuntime)

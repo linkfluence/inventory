@@ -96,6 +96,20 @@
        (future-cancel fut))
      ret))
 
+(defn tags-binder
+ [tags-binding tags]
+ (concat
+   ;;binded tag
+   (map (fn [[k v]]
+       (when-let [t-value (k tags)]
+         {:name v :value t-value}))
+       tags-binding)
+   ;;copied tag
+   (map (fn [[k v]]
+           (when (nil? (k tags-binding))
+             {:name (name k) :value v}))
+           tags)))
+
 
 (defn configure!
   [utils-conf]
