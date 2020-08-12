@@ -73,7 +73,8 @@
 (defn send-tags-request
   [instance]
   (let [tags (:labels instance)
-        data-access (first (:accessConfigs (first (:networkInterfaces instance))))
+        iface (first (:networkInterfaces instance))
+        data-access (first (:accessConfigs iface))
         public-ip (when (and
                           (some? data-access)
                           (= (:type data-access) "ONE_TO_ONE_NAT"))
@@ -94,8 +95,21 @@
                                                    {:name "gcp_service" :value "ce"}
                                                    (when public-ip
                                                       {:name "publicIp" :value public-ip})
-                                                   {:name "privateIp" :value (:networkIP (first (:networkInterfaces instance)))}]
+                                                   {:name "privateIp" :value (:networkIP iface)}]
                                                     (tags-binder tags))))}))))
+
+(defn update-gcpi-inventory!
+  [instance]
+  (let [kid (keyword (str (:id instance)))]
+        (if (:delete instance)
+          (swap! gcpi-inventory dissoc kid)
+          (if (:update instance)
+            (do
+              (swap! gcpi-inventory assoc-in [kid :labels] (:labels instance))
+              (swap! gcpi-inventory assoc-in [kid :machineType] (:machineType instance)))
+            (swap! gcpi-inventory assoc kid (dissoc instance :update))))
+        (send-tags-request instance)
+        (save-inventory)))
 
 ;;refresh function (can be invoke manually)
 (defn refresh
@@ -116,13 +130,26 @@
         (doseq [[k v] @gcpi-inventory]
           (when-not (k imap)
             (log/info "Removing instance" k)
-            (.put acs-queue [(assoc (k @gcpi-inventory) :delete true) "lifecycle" nil])))
+            (.put gcpi-queue [(assoc (k @gcpi-inventory) :delete true) "lifecycle" nil])))
         ;;detection of new server
         (doseq [instance ilist]
           (manage-instance instance)))
           (log/warn "Get instance timeout"))))
 
 
-(defn start-inventory-update-consumer! [])
+(defn start-inventory-update-consumer!
+    "consum gcp instance inventory queue"
+    []
+    (u/start-thread!
+        (fn [] ;;consume queue
+          (when-let [[instance op params] (.take gcpi-queue)]
+            ;; extract queue and pids from :radarly and dissoc :radarly data
+            (when (= "lifecycle" op)
+                (update-gcpi-inventory! instance))))
+        "gcp instance inventory consumer"))
 
-(defn start-loop! [])
+(defn start-loop! []
+  (let [refresh-period (periodic-seq (t/now) (t/minutes (:refresh-period (get-conf))))]
+    (log/info "[Refresh] starting refresh gcpi loop")
+    (chime-at refresh-period
+        refresh)))
