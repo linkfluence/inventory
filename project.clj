@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 (defproject linkfluence/inventory "0.16.6-SNAPSHOT"
+=======
+(defproject linkfluence/inventory "0.16.4-SNAPSHOT-gcs"
+>>>>>>> gcs
   :description "Rtgi inventory App"
   :url "http://www.linkfluence.com"
   :license {:name "Eclipse Public License"
@@ -25,10 +29,14 @@
                  [clj-commons/clj-yaml "0.7.0"]
                  ;;aws
                  [amazonica "0.3.152"]
+                 ;;gcs
+                 [com.google.api-client/google-api-client "1.30.5"]
+                 [com.google.apis/google-api-services-compute "v1-rev20190905-1.30.3"]
                  ;;internal cloud lib
                  [luhhujbb/clj-aliyun "0.2.4"]
                  [luhhujbb/clj-ovh "0.1.13"]
                  [luhhujbb/leaseweb "0.3.7"]
+                 [luhhujbb/clj-gcloud-compute "0.118.0-alpha-3"]
                  ;;scheduling
                  [jarohen/chime "0.2.2"]
                  ;;Storage

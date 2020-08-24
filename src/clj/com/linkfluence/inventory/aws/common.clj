@@ -1,7 +1,8 @@
 (ns com.linkfluence.inventory.aws.common
   (:require [clojure.string :as str]
             [clj-time.core :as t]
-            [cheshire.core :as json]))
+            [cheshire.core :as json]
+            [com.linkfluence.utils :as u]))
 
 ;;##########################################
 ;; Tag matching
@@ -66,17 +67,7 @@
 
 (defn tags-binder
   [tags]
-  (concat
-    ;;binded tag
-    (map (fn [[k v]]
-        (when-let [t-value (k tags)]
-          {:name v :value t-value}))
-        (:tags-binding (get-conf)))
-    ;;copied tag
-    (map (fn [[k v]]
-            (when (nil? (k (:tags-binding (get-conf))))
-              {:name (name k) :value v}))
-            tags)))
+  (u/tags-binder (:tags-binding (get-conf)) tags))
 
 (defn get-tags-from-entity-map
   "return tags of an instance object"

@@ -96,6 +96,29 @@
        (future-cancel fut))
      ret))
 
+(defn tags-binder
+ [tags-binding tags]
+ (concat
+   ;;binded tag
+   (map (fn [[k v]]
+       (when-let [t-value (k tags)]
+         {:name v :value t-value}))
+       tags-binding)
+   ;;copied tag
+   (map (fn [[k v]]
+           (when (nil? (k tags-binding))
+             {:name (name k) :value v}))
+           tags)))
+
+ (defn tags-value-morpher
+  [tags-value-morphing tags]
+    ;;morphed tag
+    (into {} (map (fn [[k v]]
+        (if-let [morpher (k tags-value-morphing)]
+          [k (morpher v)]
+          [k v]))
+        tags)))
+
 
 (defn configure!
   [utils-conf]

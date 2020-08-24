@@ -14,6 +14,7 @@
             [com.linkfluence.inventory.api.aws :as aws]
             [com.linkfluence.inventory.api.app :as app]
             [com.linkfluence.inventory.api.acs :as acs]
+            [com.linkfluence.inventory.api.gcp :as gcp]
             [com.linkfluence.inventory.api.internal :as internal]
             [com.linkfluence.dns.api :as dns]
             [com.linkfluence.dns-cleaner.api :as dns-cleaner]
@@ -37,6 +38,7 @@
   (context "/aws" [] aws/AWS)
   (context "/app" [] app/APP)
   (context "/acs" [] acs/ACS)
+  (context "/gcp" [] gcp/GCP)
   (context "/internal" [] internal/INTERNAL)
   (context "/dns" [] dns/DNS)
   (context "/dns-cleaner" [] dns-cleaner/DNS-CLEANER)
