@@ -45,7 +45,7 @@
 (defn cached?
   "check if corresponding domain exist in cache inventory"
   [instance-id]
-  (not (nil? (get @gcpi-inventory (keyword (str instance-id) nil)))))
+  (not (nil? (get @gcpi-inventory (keyword (str instance-id)) nil))))
 
 (defn get-instance
   "Return an instance from inventory"
@@ -122,7 +122,7 @@
           futur-ilist (future
                      (try
                       (mapcat (fn [project]
-                                (mapcat (fn [zone] (get-instances project zone)) (:zones project)))
+                                (mapcat (fn [zone] (get-instances (:id project) zone)) (:zones project)))
                                 projects)
                         (catch Exception e
                             (log/error "Fail to get instances" e)

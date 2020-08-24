@@ -29,7 +29,7 @@
 (defn set-ro
   "set ro flag, so support only fsync, block all write"
   [kh conf]
-  (let [hconf (kh conf)]
+  (when-let [hconf (kh conf)]
     (if-not (nil? (:read-only hconf))
       hconf
       (if-not (nil? (:read-only conf))
@@ -121,7 +121,7 @@
                           (when-not (nil? (:acs conf))
                             (acs/start!))
                           (when-not (nil? (:gcp conf))
-                            (gcp/configure! (set-ro :gcp conf)))
+                            (gcp/start!))
                           (when-not (nil? (:app conf))
                             (app/start!)))))]
                   (.addShutdownHook (Runtime/getRuntime)

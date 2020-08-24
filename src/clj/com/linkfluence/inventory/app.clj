@@ -303,7 +303,7 @@
       (fn [] ;;consume queue
         (when-let [ev (.take inventory-queue)]
           (update-inventory! ev)))
-      "Inventory Consumer"))
+      "Inventory apps Consumer"))
 
 (defn start!
   []

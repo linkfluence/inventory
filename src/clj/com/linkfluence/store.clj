@@ -207,7 +207,9 @@
  (loop [stores (:order @conf)]
    (if-not (nil? (get store (first stores) nil))
      (load-map-from (first stores) store)
-     (recur (rest stores)))))
+     (if-not (= (count stores) 0)
+       (recur (rest stores))
+       {}))))
 
 (defn configure!
   [store-conf]

@@ -32,7 +32,7 @@
                  [luhhujbb/clj-aliyun "0.2.4"]
                  [luhhujbb/clj-ovh "0.1.13"]
                  [luhhujbb/leaseweb "0.3.7"]
-                 [luhhujbb/clj-gcloud-compute "0.118.1-alpha"]
+                 [luhhujbb/clj-gcloud-compute "0.118.0-alpha-3"]
                  ;;scheduling
                  [jarohen/chime "0.2.2"]
                  ;;Storage

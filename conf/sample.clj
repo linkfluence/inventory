@@ -38,7 +38,7 @@
        :refresh-period 10}
   :gcp {:projects [{:id "my-first-project"
                     :zones ["europe-west1"]
-                    :credentials-file "MyProject-1234.json"}]}
+                    :creds-json-path "MyProject-1234.json"}]
         :tags-binding {
           :name "Name"
           :env "ENV"
@@ -56,7 +56,6 @@
           :s3 {:bucket "my_bucket"}
           :key "gcp"
         }}
-  }
 ;;ovh common
  :ovh {:application_key "******"
        :application_secret "******"

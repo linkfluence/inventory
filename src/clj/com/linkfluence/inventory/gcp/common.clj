@@ -35,11 +35,13 @@
   []
   @conf)
 
-(def tags-binder
-  (partial u/tags-binder (:tags-binding (get-conf))))
+(defn tags-binder
+  [tags]
+  (u/tags-binder (:tags-binding (get-conf)) tags))
 
-(def tags-value-morpher
-  (partial u/tags-value-morpher (:tags-value-morphing (get-conf))))
+(defn tags-value-morpher
+  [tags]
+  (u/tags-value-morpher (:tags-value-morphing (get-conf)) tags))
 
 (defn az
   [zone]

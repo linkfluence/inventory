@@ -65,8 +65,9 @@
               false))
     true))
 
-(def tags-binder
-  (partial u/tags-binder (:tags-binding (get-conf))))
+(defn tags-binder
+  [tags]
+  (u/tags-binder (:tags-binding (get-conf)) tags))
 
 (defn get-tags-from-entity-map
   "return tags of an instance object"
