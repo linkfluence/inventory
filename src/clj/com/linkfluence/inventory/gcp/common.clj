@@ -14,7 +14,7 @@
 
 (defn set-conf
   [config]
-  (doseq [project (:project config)]
+  (doseq [project (:projects config)]
     (swap! client-store
         assoc
           (keyword (:id project))

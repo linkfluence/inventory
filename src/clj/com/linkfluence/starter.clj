@@ -68,7 +68,7 @@
   (when-not (nil? (:acs conf))
     (acs/configure! (set-ro :acs conf)))
   (when-not (nil? (:gcp conf))
-    (gcp/configure! (set-ro :gcs conf)))
+    (gcp/configure! (set-ro :gcp conf)))
   ;;inventory for baremetal/vm server internal
   (when-not (nil? (:internal conf))
     (internal/configure! (set-ro :internal conf)))

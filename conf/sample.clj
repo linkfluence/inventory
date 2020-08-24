@@ -36,8 +36,9 @@
          :key "acs"
        }
        :refresh-period 10}
-  :gcs {:regions ["europe-west1"]
-        :credentials-file "MyProject-1234.json"
+  :gcp {:projects [{:id "my-first-project"
+                    :zones ["europe-west1"]
+                    :credentials-file "MyProject-1234.json"}]}}
   }
 ;;ovh common
  :ovh {:application_key "******"
