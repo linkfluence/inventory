@@ -6,6 +6,7 @@ Cloud agnostic inventory system currently supporting:
 * OVH (baremetal and cloud though ovh API)
 * Leaseweb (also called LSW) baremetal API only
 * Alicloud Services (also called ACS, ecs service only)
+* GCP (Only vm)
 * Internal inventory
 
 ## Installation
