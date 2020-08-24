@@ -38,7 +38,24 @@
        :refresh-period 10}
   :gcp {:projects [{:id "my-first-project"
                     :zones ["europe-west1"]
-                    :credentials-file "MyProject-1234.json"}]}}
+                    :credentials-file "MyProject-1234.json"}]}
+        :tags-binding {
+          :name "Name"
+          :env "ENV"
+          :team "TEAM"
+          }
+        ;;this is because gcp limit to lower string with low special chars possbility
+        :tags-value-morphing {
+          :name .toUpperCase
+          :env .toUpperCase
+          :team .toUpperCase
+          }
+        :refresh-period 5
+        :store {
+          :file {:bucket "/etc/inventory"}
+          :s3 {:bucket "my_bucket"}
+          :key "gcp"
+        }}
   }
 ;;ovh common
  :ovh {:application_key "******"

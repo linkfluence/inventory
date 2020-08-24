@@ -1,4 +1,4 @@
-(ns com.linkfluence.inventory.gcs
+(ns com.linkfluence.inventory.gcp
   (:require [com.linkfluence.inventory.gcp.common :as common]
             [com.linkfluence.inventory.gcp.instance :as instance]))
 

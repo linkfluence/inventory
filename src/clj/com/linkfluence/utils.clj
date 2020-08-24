@@ -110,6 +110,15 @@
              {:name (name k) :value v}))
            tags)))
 
+ (defn tags-value-morpher
+  [tags-value-morphing tags]
+    ;;morphed tag
+    (into {} (map (fn [[k v]]
+        (if-let [morpher (k tags-value-morphing)]
+          [k (morpher v)]
+          [k v]))
+        tags)))
+
 
 (defn configure!
   [utils-conf]

@@ -1,9 +1,12 @@
 (ns com.linkfluence.inventory.gcp.instance
   (:require [clojure.string :as str]
+            [chime :refer [chime-at]]
             [clj-time.core :as t]
+            [clj-time.periodic :refer [periodic-seq]]
             [cheshire.core :as json]
+            [clojure.tools.logging :as log]
             [clj-gcloud.compute.instance :as gci]
-            [com.linkfluence.inventory.gcp.common :as gcp]
+            [com.linkfluence.inventory.gcp.common :refer :all]
             [com.linkfluence.inventory.core :as inventory]
             [com.linkfluence.store :as store]
             [com.linkfluence.utils :as u])
@@ -19,20 +22,20 @@
 
 (defn load-inventory!
   []
-  (when-let [inventory (store/load-map (get-service-store "gcp-instance"))]
+  (when-let [inventory (store/load-map (get-service-store "vm"))]
     (reset! gcpi-inventory inventory)))
 
 (defn save-inventory
   "Save on both local file and s3"
   []
   (when (= 0 (.size gcpi-queue))
-    (store/save-map (get-service-store "gcp-instance") @gcpi-inventory)
+    (store/save-map (get-service-store "vm") @gcpi-inventory)
     (u/fsync "gcp/instance")))
 
 (defn- get-instances
   "Retrieve instance"
   [project zone]
-  (gci/list-all (gcp/client project) project zone))
+  (gci/list-all (client project) project zone))
 
 (defn get-gcpi-inventory
   "Retrieve a list of filtered instance or not"
@@ -42,7 +45,7 @@
 (defn cached?
   "check if corresponding domain exist in cache inventory"
   [instance-id]
-  (not (nil? (get @gcpi-inventory (keyword (string instance-id) nil)))))
+  (not (nil? (get @gcpi-inventory (keyword (str instance-id) nil)))))
 
 (defn get-instance
   "Return an instance from inventory"
@@ -67,7 +70,7 @@
 
 (defn refresh-instance
   [project zone instance-id]
-    (when-let [instance (gci/get (gcp/client project) project zone instance-id)]
+    (when-let [instance (gci/get (client project) project zone instance-id)]
     (manage-instance instance)))
 
 (defn send-tags-request
@@ -89,14 +92,14 @@
                                :provider "GCP"
                                :id (str "gcp-" (:id instance))
                                :tags (filter (fn [x] (not (nil? x))) (into [] (concat [{:name "provider" :value "GCP"}
-                                                   {:name "AZ" :value (gcp/zone (get-in instance [:zone]))}
-                                                   {:name "REGION" :value (gcp/region (get-in instance [:zone]))}
-                                                   {:name "SHORT_AZ" :value (gcp/short-az (get-in instance [:zone]))}
+                                                   {:name "AZ" :value (az (get-in instance [:zone]))}
+                                                   {:name "REGION" :value (region (get-in instance [:zone]))}
+                                                   {:name "SHORT_AZ" :value (short-az (get-in instance [:zone]))}
                                                    {:name "gcp_service" :value "ce"}
                                                    (when public-ip
                                                       {:name "publicIp" :value public-ip})
                                                    {:name "privateIp" :value (:networkIP iface)}]
-                                                    (tags-binder tags))))}))))
+                                                    (tags-binder (tags-value-morpher tags)))))}))))
 
 (defn update-gcpi-inventory!
   [instance]
@@ -120,7 +123,7 @@
                      (try
                       (mapcat (fn [project]
                                 (mapcat (fn [zone] (get-instances project zone)) (:zones project)))
-                                project)
+                                projects)
                         (catch Exception e
                             (log/error "Fail to get instances" e)
                           nil)))]
