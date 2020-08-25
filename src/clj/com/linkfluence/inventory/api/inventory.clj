@@ -107,6 +107,9 @@
                   tags
                   with-alias
                   (inventory/get-resources filters with-alias))}))
+  ;;csv
+  (POST "/csv/tag/resource" [tags with-alias filters]
+    (u/mk-resp 200 "success" {:data (inventory/get-csv-resources tags with-alias filters)}))
   ;;tag
   (GET "/tag/resource" [] (u/mk-resp 200 "success" {:data (inventory/get-resource-tags-list)}))
   (GET "/tag/resource/:id" [id] (u/mk-resp 200 "success" {:data (inventory/get-tag-value-from-resources id)}))

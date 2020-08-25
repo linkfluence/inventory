@@ -260,6 +260,34 @@
     ([tags with-alias? filters]
           (aggregate-resources tags (get-resources filters with-alias?))))
 
+(defn- res-to-csv-line
+  [ress tags]
+  (let [[k v] ress]
+    (str (name k)
+      ","
+      (str/join "," (map
+                      (fn [tag]
+                        (str (get v (keyword tag))))
+                         tags))
+      "\n")))
+
+(defn get-csv-resources
+  ([tags with-alias?]
+        (get-csv-resources tags with-alias? []))
+  ([tags with-alias? filters]
+        (if (spec/valid? (spec/coll-of string?) tags)
+          (let [ress (get-resources filters with-alias?)
+                head (str "id," (str/join "," tags) "\n")]
+                (loop [rest-ress ress
+                       csv head]
+                    ;;we walk across resource
+                    (if-let [a (first rest-ress)]
+                        (recur
+                          (rest rest-ress)
+                          (str csv (res-to-csv-line a tags)))
+                        csv)))
+          {:error {:tags (spec/explain-str (spec/coll-of string?) tags)}})))
+
 (defn load-inventory
   []
   ;;applicable if we wan't to store something (ie : not during test)

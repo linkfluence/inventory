@@ -193,11 +193,25 @@ Return a map with of distinct tag value as key matching :tag and resources count
 
 Return an array of tag value matching :tag from all resource
 
+## CSV by tags
+
+    path : /inventory/agg/tag/resource
+    method : POST
+    params :
+      * tags, an array of tags string
+      * with-alias, boolean indicating if we send alias result
+      * filter, an array of tags object (with name and value properties)
+
+Return a csv in data field with column specified in tags, resources filtered by filter
+
 ## Aggregation by tags
 
     path : /inventory/agg/tag/resource
     method : POST
-    params : tags, an array of tags string.
+    params :
+      * tags, an array of tags string
+      * with-alias, boolean indicating if we send alias result
+      * filter, an array of tags object (with name and value properties)
 
 Return an object which is a collection of bucket of tag tag/value and the resource object at last level a pool of resource
 
@@ -205,7 +219,10 @@ Return an object which is a collection of bucket of tag tag/value and the resour
 
     path : /inventory/agg/tag/resource/:tag
     method : POST
-    params : tags, an array of tags string.
+    params :
+      * tags, an array of tags string
+      * with-alias, boolean indicating if we send alias result
+      * filter, an array of tags object (with name and value properties)
 
 Return an object which is a collection of bucket of tag tag/value and the tag value of :tag at last level a list of tag value of resource for tag :tag
 
