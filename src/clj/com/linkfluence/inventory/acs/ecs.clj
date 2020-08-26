@@ -108,6 +108,7 @@
                                                    {:name "REGION" :value (get-in instance [:regionId])}
                                                    {:name "SHORT_AZ" :value (short-az (get-in instance [:zoneId]))}
                                                    {:name "acs_service" :value "ecs"}
+                                                   {:name "instance_type" :value (get-in instance [:instanceType])}
                                                    (when (first (:publicIpAddress instance))
                                                       {:name "publicIp" :value (first (:publicIpAddress instance))})
                                                    {:name "privateIp" :value (:primaryIpAddress (first (:networkInterfaces instance)))}]

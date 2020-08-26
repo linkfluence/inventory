@@ -1,10 +1,10 @@
 FROM alpine:3.10.0
 
-RUN apk --no-cache add openjdk8-jre curl
+RUN apk --no-cache add openjdk11-jdk curl
 
 RUN mkdir /opt/inventory && mkdir /opt/inventory/config && mkdir /opt/inventory/data
 
-RUN curl -L https://github.com/linkfluence/inventory/releases/download/v0.16.7/inventory-0.16.7-standalone.jar -o /opt/inventory/inventory.jar
+RUN curl -L https://github.com/linkfluence/inventory/releases/download/v0.16.8/inventory-0.16.8-standalone.jar -o /opt/inventory/inventory.jar
 
 COPY docker-entrypoint.sh /
 

@@ -195,12 +195,13 @@ Return an array of tag value matching :tag from all resource
 
 ## CSV by tags
 
-    path : /inventory/agg/tag/resource
+    path : /inventory/csv/tag/resource
     method : POST
     params :
       * tags, an array of tags string
       * with-alias, boolean indicating if we send alias result
       * filter, an array of tags object (with name and value properties)
+      * add-header, a boolean indicate if a header with column name is added (default to false)
 
 Return a csv in data field with column specified in tags, resources filtered by filter
 

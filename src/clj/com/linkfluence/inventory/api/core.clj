@@ -47,7 +47,8 @@
   (context "/deploy" [] deploy/DEPLOY)
   (context "/provision" [] provision/PROVISION)
   (context "/lsw" [] lsw/LSW)
-  (GET "/favicon.ico" [] {:status 204}))
+  (GET "/favicon.ico" [] {:status 204})
+  (route/not-found {:status 404 :body {:msg "Page not found"}}))
 
 (def handler (-> app-routes
                  (wrap-restful-params :formats [:json-kw])

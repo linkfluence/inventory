@@ -96,6 +96,9 @@
                                                    {:name "REGION" :value (region (get-in instance [:zone]))}
                                                    {:name "SHORT_AZ" :value (short-az (get-in instance [:zone]))}
                                                    {:name "gcp_service" :value "ce"}
+                                                   {:name "instance_type"
+                                                    :value (last
+                                                              (str/split (get-in instance [:machineType]) #"/"))}
                                                    (when public-ip
                                                       {:name "publicIp" :value public-ip})
                                                    {:name "privateIp" :value (:networkIP iface)}]

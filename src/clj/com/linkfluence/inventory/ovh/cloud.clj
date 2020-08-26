@@ -84,12 +84,14 @@
                                   :provider "OVH-CLOUD"
                                   :id (str "ovh-" (:id instance))
                                   :tags [{:name "provider" :value "OVH-CLOUD"}
+                                         {:name "Name" :value (:name instance)}
                                          {:name "REGION" :value (ovh-region (str/lower-case (:region instance)))}
                                          {:name "AZ" :value (str/lower-case (:region instance))}
                                          {:name "SHORT_AZ" :value (ovh-short-az (str/lower-case (:region instance)))}
                                          {:name "publicIp" :value (get-address instance 4 "public")}
                                          {:name "publicIpv6" :value (get-address instance 6 "public")}
                                          {:name "privateIp" :value (get-address instance 4 "private")}
+                                         {:name "instance_type" :value (first (str/split (:planCode instance) #"\."))}
                                          {:name "state" :value "installed"}]})))
 
 (defn- delete-instance!
@@ -124,12 +126,21 @@
   (swap! ovh-inventory assoc (keyword (:id instance)) instance)
   (save-inventory)
   (send-tags-request instance)
-  (let [host-id (str "ovh-" (:id instance))
+  (when-not (get @ovh-conf :only-inventory false)
+    (let [host-id (str "ovh-" (:id instance))
         inventory-host (:inventory-host @ovh-conf)]
         (caller/add-command {:commands (mk-bootstrap-cmd host-id)
                              :user (:post-install-user @ovh-conf)
                              :method :ssh
-                             :hosts (get-address instance 4 "public")})))
+                             :hosts (get-address instance 4 "public")}))))
+
+(defn- update-instance!
+  [instance]
+  (swap! ovh-inventory assoc-in [(keyword (:id instance)) :flavorId] (:flavorId instance))
+  (swap! ovh-inventory assoc-in [(keyword (:id instance)) :planCode] (:planCode instance))
+  (swap! ovh-inventory assoc-in [(keyword (:id instance)) :name] (:name instance))
+  (save-inventory)
+  (send-tags-request instance))
 
 (defn bootstrap
      [instance-id]
@@ -171,6 +182,7 @@
     "bootstrap" (instance-bootstrap! instance)
     "reboot" (reboot-instance instance)
     "rename" (rename-instance! instance params)
+    "update" (update-instance! instance)
     (log/info "unknow action for ovh cloud handler"))))
 
 (defn get-service-state
@@ -214,9 +226,12 @@
                             "(region: " (get @regions-state region) "/instance:"(get @regions-instance-service-state region) ")")))))))
             ;;detection of new instance
             (doseq [instance slist]
-              (when-not (or (cached? instance) (not= "ACTIVE" (:status instance)))
-                (log/info "Adding instance" (:id instance) "to ovh-cloud queue")
-                (.put ovh-queue [instance "bootstrap" nil])))))
+              (if (and (not (cached? instance)) (= "ACTIVE" (:status instance)))
+                (do
+                  (log/info "Adding instance" (:id instance) "to ovh-cloud queue")
+                  (.put ovh-queue [instance "bootstrap" nil]))
+                (when (= "ACTIVE" (:status instance))
+                  (.put ovh-queue [instance "update" nil]))))))
 
 ;;loop to poll ovh api
 (defn- start-ovh-loop!

@@ -273,11 +273,13 @@
 
 (defn get-csv-resources
   ([tags with-alias?]
-        (get-csv-resources tags with-alias? []))
+        (get-csv-resources tags with-alias? [] true))
   ([tags with-alias? filters]
+        (get-csv-resources tags with-alias? filters true))
+  ([tags with-alias? filters add-header]
         (if (spec/valid? (spec/coll-of string?) tags)
           (let [ress (get-resources filters with-alias?)
-                head (str "id," (str/join "," tags) "\n")]
+                head (if add-header (str "id," (str/join "," tags) "\n") "")]
                 (loop [rest-ress ress
                        csv head]
                     ;;we walk across resource

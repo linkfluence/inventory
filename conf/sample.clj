@@ -85,6 +85,7 @@
 ;;ovh public cloud
  :ovh-cloud {:project-id  "********"
              :refresh-period 2
+             :only-inventory true ;; indicate to send post install cmd or not
              :post-install-optional-cmd  ["sudo apt-get update"
                                           "sudo apt-get -y install python curl moreutils"]
              :post-install-user "ubuntu"

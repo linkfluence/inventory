@@ -80,6 +80,7 @@
                                                    {:name "REGION" :value (aws-region (get-in instance [:placement :availability-zone]))}
                                                    {:name "SHORT_AZ" :value (short-az (get-in instance [:placement :availability-zone]))}
                                                    {:name "aws_service" :value "ec2"}
+                                                   {:name "instance_type" :value (get-in instance [:instance-type])}
                                                    (when (:public-ip-address instance)
                                                       {:name "publicIp" :value (:public-ip-address instance)})
                                                    {:name "privateIp" :value (:private-ip-address instance)}]
