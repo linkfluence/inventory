@@ -54,6 +54,7 @@
                                                    {:name "APP_VERSION" :value (:engine-version instance)}
                                                    {:name "aws_service" :value "rds"}
                                                    {:name "dbname" :value (:dbname instance)}
+                                                   {:name "instance_type" :value (get-in instance [:dbinstance-class])}
                                                    {:name "dbinstance-identifier" :value (:dbinstance-identifier instance)}]
                                                     (tags-binder tags))))}))))
 

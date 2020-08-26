@@ -77,6 +77,7 @@
                                                    {:name "APP" :value (get-in cluster [:engine])}
                                                    {:name "APP_VERSION" :value (get-in cluster [:engine-version])}
                                                    {:name "aws_service" :value "elasticache"}
+                                                   {:name "instance_type" :value (get-in cluster [:cache-node-type])}
                                                    {:name "cluster_id" :value (get-in cluster [:cache-cluster-id])}])})))))
 
 (defn- update-aws-inventory!
