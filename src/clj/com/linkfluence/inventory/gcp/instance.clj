@@ -99,6 +99,10 @@
                                                    {:name "instance_type"
                                                     :value (last
                                                               (str/split (get-in instance [:machineType]) #"/"))}
+                                                   {:name "instance_lifecycle"
+                                                    :value (if (get-in instance [:scheduling :preemptible])
+                                                                  "spot"
+                                                                  "normal")}
                                                    (when public-ip
                                                       {:name "publicIp" :value public-ip})
                                                    {:name "privateIp" :value (:networkIP iface)}]

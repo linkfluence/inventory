@@ -81,6 +81,7 @@
                                                    {:name "SHORT_AZ" :value (short-az (get-in instance [:placement :availability-zone]))}
                                                    {:name "aws_service" :value "ec2"}
                                                    {:name "instance_type" :value (get-in instance [:instance-type])}
+                                                   {:name "instance_lifecycle" :value (get-in instance [:instance-lifecycle] "normal")}
                                                    (when (:public-ip-address instance)
                                                       {:name "publicIp" :value (:public-ip-address instance)})
                                                    {:name "privateIp" :value (:private-ip-address instance)}]
