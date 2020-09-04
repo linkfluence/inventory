@@ -7,6 +7,7 @@
                             :secret-key "*******"
                             :name "eu-west-1"}
                           }
+       :account-id "45645646546" ;; allow to scrap elasticache tags
        :tags-binding {
          :Name "FQDN"
          :env "ENVIRONMENT"
