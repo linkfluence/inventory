@@ -28,7 +28,7 @@ Storage replication is fully asynchronous inventory aims to retains data in memo
 
 Launching
 
-    $ java -jar clj-rtgi-inventory-0.15.0-standalone.jar conf/prod.clj
+    $ java -jar inventory-0.16.10-standalone.jar conf/prod.clj
 
 ## Documentation
 
@@ -36,7 +36,7 @@ Documentation is available [here](doc/intro.md)
 
 ## General stuffs
 
-Copyright Jean-Baptiste Besselat © 2019 Linkfluence SAS
+Copyright Jean-Baptiste Besselat © 2020 Linkfluence SAS
 
 OMAPI dhcp by talamso@gmx.net, website <https://talamonso.net/omapi/>, maintained here: <https://github.com/jedi4ever/omapi-dhcp>
 
