@@ -131,7 +131,7 @@
             (if-let [account (:account-id (get-conf))]
               (doall
                 (map
-                  (partial add-tags-to-cluster-nodes account region)
+                  (partial add-tags-to-cluster-nodes account (name region))
                   clusters))
               clusters))
 
