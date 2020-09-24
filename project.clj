@@ -1,4 +1,4 @@
-(defproject linkfluence/inventory "0.16.10"
+(defproject linkfluence/inventory "0.16.11-SNAPSHOT"
   :description "Rtgi inventory App"
   :url "http://www.linkfluence.com"
   :license {:name "Eclipse Public License"
@@ -29,7 +29,7 @@
                  [luhhujbb/clj-aliyun "0.2.4"]
                  [luhhujbb/clj-ovh "0.1.13"]
                  [luhhujbb/leaseweb "0.3.7"]
-                 [luhhujbb/clj-gcloud-compute "0.118.0-alpha-3"]
+                 [luhhujbb/clj-gcloud "1.0.0"]
                  ;;scheduling
                  [jarohen/chime "0.2.2"]
                  ;;Storage

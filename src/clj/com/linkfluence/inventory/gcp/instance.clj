@@ -35,7 +35,7 @@
 (defn- get-instances
   "Retrieve instance"
   [project zone]
-  (gci/list-all (client project) project zone))
+  (gci/list-all (client project "compute-instance") project zone))
 
 (defn get-gcpi-inventory
   "Retrieve a list of filtered instance or not"
@@ -70,7 +70,7 @@
 
 (defn refresh-instance
   [project zone instance-id]
-    (when-let [instance (gci/get (client project) project zone instance-id)]
+    (when-let [instance (gci/get (client project "compute-instance") project zone instance-id)]
     (manage-instance instance)))
 
 (defn send-tags-request
