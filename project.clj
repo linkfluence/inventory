@@ -43,7 +43,9 @@
                  ;;journal storer, esfs object saver
                  [cc.qbits/spandex "0.7.4"]
                  ;;conf template (dns conf generation)
-                 [luhhujbb/clostache "1.5.0"]]
+                 [luhhujbb/clostache "1.5.0"]
+                 ;;distributed queing
+                 [org.apache.kafka/kafka-clients "2.4.0"]]
   :main ^:skip-aot com.linkfluence.starter
   :target-path "target/%s"
   :source-paths ["src/clj"]
