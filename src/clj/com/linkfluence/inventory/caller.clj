@@ -23,6 +23,8 @@
 ;   :dest (reserved for sftp)
 ;   :module (reserved for ansible)
 ;   :playbook (reserved for ansible-playbook)
+;   :module-path (reserved for terraform)
+;   :var-file (reserved for terraform)
 ;   :sudo true
 ;   :password (optional, use caller private key)
 ;   :key-path (optional, override default key path)
@@ -278,7 +280,11 @@
 (defmethod execute-command :ansible [command]
   "Send ansible command"
   (let [command-id (swap! caller-counter inc)
-        out (shell/sh "/usr/local/bin/ansible" "-i" (host-vec->list (:hosts command)) "-m" (:module command) "-a" (:commands command))]
+        out (shell/sh
+          (str (or (:ansible-path @caller-conf) "/usr/local/bin") "/ansible")
+           "-i" (host-vec->list (:hosts command))
+           "-m" (:module command)
+           "-a" (:commands command))]
     (when (:debug @caller-conf)
       (log/info "ansible return :" (:out out)))
     (add-to-journal (assoc command :id command-id :out (:out out) :err (:err out) :exit (:exit out)) "SENT")))
@@ -286,9 +292,23 @@
 (defmethod execute-command :ansible-playbook [command]
   "Send ansible-playbook command"
   (let [command-id (swap! caller-counter inc)
-        out (shell/sh "/usr/local/bin/ansible-playbook" "-i" (host-vec->list (:hosts command)) (:playbook command))]
+        out (shell/sh
+                (str (or (:ansible-path @caller-conf) "/usr/local/bin") "/ansible-playbook")
+                "-i"
+                (host-vec->list (:hosts command))
+                (:playbook command))]
     (when (:debug @caller-conf)
       (log/info "ansible-playbook return :" (:out out)))
+    (add-to-journal (assoc command :id command-id :out (:out out) :err (:err out) :exit (:exit out)) "SENT")))
+
+(defmethod execute-command :terraform [command]
+  (let [command-id (swap! caller-counter inc)
+        tf-cmd (first commands)
+        out (shell/sh
+          (str (or (:terraform-bin-path @caller-conf) "/usr/local/bin") "/terraform")
+           tf-command]
+    (when (:debug @caller-conf)
+      (log/info "terraform return :" (:out out)))
     (add-to-journal (assoc command :id command-id :out (:out out) :err (:err out) :exit (:exit out)) "SENT")))
 
 (defmethod execute-command :local [command]
