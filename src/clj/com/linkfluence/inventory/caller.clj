@@ -29,7 +29,7 @@
 ;   :password (optional, use caller private key)
 ;   :key-path (optional, override default key path)
 ;   :hosts "you-host.example.com" or ["host1.example.com" "host2.example.com"]
-;   :method ":ssh" ":ansible" ":ansible-playbook" ":sftp" or ":local"
+;   :method ":ssh" ":ansible" ":ansible-playbook" ":sftp" ":terraform" or ":local"
 ; }
 
 ; /!\ WARNING /!\
@@ -63,6 +63,7 @@
 (def es-index-exist? (atom false))
 
 (def es-client (atom nil))
+
 ;;
 (def es-mappings
   {
@@ -74,6 +75,7 @@
           :method { :type "keyword"}
           :host { :type "keyword"}
           :exit { :type "integer"}
+          :id { :type "keyword" }
           :out {
             :type "text",
             :fields { :keyword { :type "keyword" :ignore_above 256 }}}
@@ -104,6 +106,7 @@
         { :date (f/unparse cust-datetime-format (t/now))
           :method (:method command)
           :state state
+          :id (:id command)
           :commands (str (:commands command) (:playbook command) (:module command) (:src command))
           :hosts (str (:hosts command))
           :out (str (when (:out command) (:out command)))
@@ -145,8 +148,12 @@
   "Add command to queue"
   [command]
     (when-not (ro?)
-      (.put command-queue command)
-      (log/info "[CALLER] add command - queue size :" (.size command-queue))))
+      (let [command-counter (swap! caller-counter inc)
+            prefix (utils/random-string 8)
+            id (str prefix "-" command-counter)]
+      (.put command-queue (assoc command :id id))
+      (log/info "[CALLER] add command - queue size :" (.size command-queue))
+      id)))
 
 (defn add-to-journal
   "add command to journal"
@@ -213,23 +220,23 @@
 
 (defn send-ssh-command
   "send ssh command"
-  [command-id command port]
+  [command port]
   (if (:commands command)
   (let [session (mk-ssh-session command port)]
       (with-connection session
           (let [result (ssh session {:in (command-vec->string (:sudo command) (:commands command))})]
-            (add-to-journal (assoc command :id command-id :out (:out result) :err (:err result) :exit (:exit result)) "SENT"))))
-            (add-to-journal  (assoc command :id command-id :out "NONE" :err "No commands !" :exit 1) "FAILED")))
+            (add-to-journal (assoc command :out (:out result) :err (:err result) :exit (:exit result)) "SENT"))))
+            (add-to-journal  (assoc command :out "NONE" :err "No commands !" :exit 1) "FAILED")))
 
 (defn send-sftp-command
   "send ssh command"
-  [command-id command port]
+  [command port]
           (let [session (mk-ssh-session command port)]
             (with-connection session
               (let [channel (ssh-sftp session)]
                  (with-channel-connection channel
                    (sftp channel {} :put (:src command) (:dest command))))))
-         (add-to-journal (assoc command :id command-id) "SENT"))
+         (add-to-journal command "SENT"))
 
 ;;send command to a (list of) server(s)
 (defmulti execute-command (fn [command]
@@ -237,28 +244,26 @@
 
 (defmethod execute-command :ssh [command]
   "Send ssh command"
-  (let [command-id (swap! caller-counter inc)]
   (try
     ;;send command through default ssh port
-    (send-ssh-command command-id command 22)
+    (send-ssh-command command 22)
     (catch com.jcraft.jsch.JSchException e
       (try
         (log/error "Port 22 failed" e)
         ;;fall back to custom port
-        (send-ssh-command command-id command (:ssh-custom-port @caller-conf))
+        (send-ssh-command command (:ssh-custom-port @caller-conf))
         (catch com.jcraft.jsch.JSchException ee
-          (add-to-journal (assoc command :id command-id :out (.getMessage ee)) "FAILED")
+          (add-to-journal (assoc command :out (.getMessage ee)) "FAILED")
           (log/error "Port " (:ssh-custom-port @caller-conf) " failed" ee))
         (catch Exception eee
-          (add-to-journal (assoc command :id command-id :out (.getMessage eee)) "FAILED")
+          (add-to-journal (assoc command :out (.getMessage eee)) "FAILED")
           (log/error "Port " (:ssh-custom-port @caller-conf) " failed" eee))
         (catch Throwable th
-          (add-to-journal (assoc command :id command-id :out (.getMessage th)) "FAILED")
-          (log/error "Port " (:ssh-custom-port @caller-conf) " failed" th)))))))
+          (add-to-journal (assoc command :out (.getMessage th)) "FAILED")
+          (log/error "Port " (:ssh-custom-port @caller-conf) " failed" th))))))
 
 (defmethod execute-command :sftp [command]
   "Send sftp comand"
-  (let [command-id (swap! caller-counter inc)]
   (try
     ;;send command through default ssh port
     (send-sftp-command command 22)
@@ -266,59 +271,55 @@
       (try
         (log/error "Port 22 failed" e)
         ;;fall back to custom port
-        (send-sftp-command command-id command (:ssh-custom-port @caller-conf))
+        (send-sftp-command command (:ssh-custom-port @caller-conf))
         (catch com.jcraft.jsch.JSchException ee
-          (add-to-journal (assoc command :id command-id :out (.getMessage ee)) "FAILED")
+          (add-to-journal (assoc command  :out (.getMessage ee)) "FAILED")
           (log/error "Port " (:ssh-custom-port @caller-conf) " failed" ee))
         (catch Exception eee
-          (add-to-journal (assoc command :id command-id :out (.getMessage eee)) "FAILED")
+          (add-to-journal (assoc command :out (.getMessage eee)) "FAILED")
           (log/error "Port " (:ssh-custom-port @caller-conf) " failed" eee))
         (catch Throwable th
-          (add-to-journal (assoc command :id command-id :out (.getMessage th)) "FAILED")
-          (log/error "Port " (:ssh-custom-port @caller-conf) " failed" th)))))))
+          (add-to-journal (assoc command :out (.getMessage th)) "FAILED")
+          (log/error "Port " (:ssh-custom-port @caller-conf) " failed" th))))))
 
 (defmethod execute-command :ansible [command]
   "Send ansible command"
-  (let [command-id (swap! caller-counter inc)
-        out (shell/sh
+  (let [out (shell/sh
           (str (or (:ansible-path @caller-conf) "/usr/local/bin") "/ansible")
            "-i" (host-vec->list (:hosts command))
            "-m" (:module command)
            "-a" (:commands command))]
     (when (:debug @caller-conf)
       (log/info "ansible return :" (:out out)))
-    (add-to-journal (assoc command :id command-id :out (:out out) :err (:err out) :exit (:exit out)) "SENT")))
+    (add-to-journal (assoc command :out (:out out) :err (:err out) :exit (:exit out)) "SENT")))
 
 (defmethod execute-command :ansible-playbook [command]
   "Send ansible-playbook command"
-  (let [command-id (swap! caller-counter inc)
-        out (shell/sh
+  (let [out (shell/sh
                 (str (or (:ansible-path @caller-conf) "/usr/local/bin") "/ansible-playbook")
                 "-i"
                 (host-vec->list (:hosts command))
                 (:playbook command))]
     (when (:debug @caller-conf)
       (log/info "ansible-playbook return :" (:out out)))
-    (add-to-journal (assoc command :id command-id :out (:out out) :err (:err out) :exit (:exit out)) "SENT")))
+    (add-to-journal (assoc command :out (:out out) :err (:err out) :exit (:exit out)) "SENT")))
 
 (defmethod execute-command :terraform [command]
-  (let [command-id (swap! caller-counter inc)
-        tf-cmd (first commands)
+  (let [tf-cmd (first (:commands command))
         out (shell/sh
           (str (or (:terraform-bin-path @caller-conf) "/usr/local/bin") "/terraform")
-           tf-command]
+           tf-cmd)]
     (when (:debug @caller-conf)
       (log/info "terraform return :" (:out out)))
-    (add-to-journal (assoc command :id command-id :out (:out out) :err (:err out) :exit (:exit out)) "SENT")))
+    (add-to-journal (assoc command :out (:out out) :err (:err out) :exit (:exit out)) "SENT")))
 
 (defmethod execute-command :local [command]
   "Send local command"
-  (let [command-id (swap! caller-counter inc)]
     (if (vector? (:commands command))
       (doseq [co (:commands command)]
         (shell/sh co))
         (shell/sh (:commands command)))
-  (add-to-journal (assoc command :id command-id :out "LOCAL") "SENT")))
+  (add-to-journal (assoc command :out "LOCAL") "SENT"))
 
 (defn- start-command-consumer!
   "This function consume command queue"
