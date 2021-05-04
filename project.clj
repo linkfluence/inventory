@@ -23,8 +23,12 @@
                  ;;json yaml mgt
                  [cheshire "5.9.0"]
                  [clj-commons/clj-yaml "0.7.0"]
+                 ;;jackson
+                 [com.fasterxml.jackson.core/jackson-core "2.11.0"]
+                 [com.fasterxml.jackson.core/jackson-databind "2.11.0"]
+                 [com.fasterxml.jackson.core/jackson-databind "2.11.0"]
                  ;;aws
-                 [amazonica "0.3.152"]
+                 [amazonica "0.3.156"]
                  ;;internal cloud lib
                  [luhhujbb/clj-aliyun "0.2.4"]
                  [luhhujbb/clj-ovh "0.1.13"]
@@ -45,7 +49,7 @@
                  ;;conf template (dns conf generation)
                  [luhhujbb/clostache "1.5.0"]
                  ;;distributed queing
-                 [org.apache.kafka/kafka-clients "2.4.0"]]
+                 [org.apache.kafka/kafka_2.12 "2.4.1"]]
   :main ^:skip-aot com.linkfluence.starter
   :target-path "target/%s"
   :source-paths ["src/clj"]
