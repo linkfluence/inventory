@@ -5,11 +5,11 @@
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.9.0"]
                  ;; logging stuff
-                 [org.clojure/tools.logging "0.3.1"]
-                 [org.slf4j/slf4j-api "1.7.19"]
-                 [org.slf4j/slf4j-log4j12 "1.7.19"]
-                 [org.slf4j/jcl-over-slf4j "1.7.19"]
-                 [log4j "1.2.17"]
+                 [org.clojure/tools.logging "1.2.1"]
+                 [org.slf4j/slf4j-api "1.7.32"]
+                 [org.slf4j/slf4j-log4j12 "1.7.32"]
+                 [org.slf4j/jcl-over-slf4j "1.7.32"]
+                 [org.apache.logging.log4j/log4j-core "2.15.0"]
                  ;; time mgt
                  [clj-time "0.15.2"]
                  ;; web service
