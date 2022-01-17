@@ -18,7 +18,7 @@
                  [ring-middleware-format "0.7.4"]
                  [bk/ring-gzip "0.3.0"]
                  ;;for proxy
-                 [clj-http "3.7.0"]
+                 [clj-http "3.12.3"]
                  [digest "1.4.4"]
                  ;;json yaml mgt
                  [cheshire "5.9.0"]
