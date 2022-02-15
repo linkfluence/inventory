@@ -14,6 +14,9 @@
 ;;Handler for ali cloud ECS
 (def acs-inventory (atom {}))
 
+(def last-save (atom (System/currentTimeMillis)))
+(def item-not-save (atom 0))
+
 (def ^LinkedBlockingQueue acs-queue (LinkedBlockingQueue.))
 
 (defn load-inventory!

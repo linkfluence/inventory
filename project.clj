@@ -49,7 +49,7 @@
                  ;;conf template (dns conf generation)
                  [luhhujbb/clostache "1.5.0"]
                  ;;distributed queing
-                 [org.apache.kafka/kafka_2.12 "2.4.1"]]
+                 [luhhujbb/gregor "1.2.0"]]
   :main ^:skip-aot com.linkfluence.starter
   :target-path "target/%s"
   :source-paths ["src/clj"]

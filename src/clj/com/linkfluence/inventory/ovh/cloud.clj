@@ -17,6 +17,9 @@
 
 (def ovh-inventory (atom {}))
 
+(def last-save (atom (System/currentTimeMillis)))
+(def item-not-save (atom 0))
+
 (defn ro?
   []
   (:read-only @ovh-conf))

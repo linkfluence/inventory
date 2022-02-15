@@ -13,6 +13,9 @@
 
 (def aws-inventory (atom {}))
 
+(def last-save (atom (System/currentTimeMillis)))
+(def item-not-save (atom 0))
+
 (def ^LinkedBlockingQueue aws-asg-queue (LinkedBlockingQueue.))
 
 
