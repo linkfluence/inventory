@@ -1,6 +1,7 @@
 (ns com.linkfluence.inventory.queue
   (:require [gregor.core :as kafka]
-            [clojure.edn :as edn])
+            [clojure.edn :as edn]
+            [cheshire.core :refer :all])
   (:import [java.util.concurrent LinkedBlockingQueue])
 
 (defprotocol IQproto
@@ -25,18 +26,18 @@
 (deftype IQKafkaQueue [q]
   "kafka implementation"
   IQProto
-  (put [q e] (kafka/send (:producer q) (:topic q) (pr-str e)))
+  (put [q e] (kafka/send (:producer q) (:topic q) (generate-string e)))
   (take [q] (if (= 0 (count (deref (:buffer q))))
               (do
                 (kafka/commit-offset! (:consumer q))
                 (let [records (kafka/poll (:consumer q))
                       el (first records)]
                       (reset! (:buffer q) (rest records))
-                      (:value el))
+                      (parse-string (:value el) true)))
                 (let [records (deref (:buffer q))
                       el (first records)]
                       (reset! (:buffer q) (rest records))
-                      (edn/read-string (:value el))))))
+                      (parse-string (:value el) true))))
   (size [q] -1)
   (close [q] (close (:consumer q)
              (close (:producer q)))))
@@ -52,3 +53,15 @@
                    :topic topic
                    :group-id group-id
                    :bootstrap-servers bootstrap-servers}))
+
+(defmulti mk-queue
+   "multi method to make queue"
+   (fn [x] (:type x)))
+
+(defmethod mk-queue :kafka
+    [params]
+    (iq-kafka-queue params))
+
+(defmethod mk-queue :linked-blocking-queue
+    [_]
+    (iq-linked-blocking-queue))

@@ -15,9 +15,9 @@
 (def acs-inventory (atom {}))
 
 (def last-save (atom (System/currentTimeMillis)))
-(def item-not-save (atom 0))
+(def item-not-saved (atom 0))
 
-(def ^LinkedBlockingQueue acs-queue (LinkedBlockingQueue.))
+(def acs-queue (atom nil))
 
 (defn load-inventory!
   []
@@ -27,9 +27,11 @@
 (defn save-inventory
   "Save on both local file and s3"
   []
-  (when (= 0 (.size acs-queue))
-    (store/save-map (get-service-store "ecs") @acs-inventory)
-    (u/fsync "acs/ecs")))
+  (if (u/save? last-save item-not-saved)
+    (do
+        (store/save-map (get-service-store "ecs") @acs-inventory)
+        (u/fsync "acs/ecs"))
+    (swap! item-not-saved inc)))
 
 (defn get-acs-inventory
   "Retrieve a list of filtered instance or not"
@@ -65,14 +67,14 @@
               ;;add server
               (do
                 (log/info "Adding instance" (:instanceId instance)  "to acs queue")
-                (.put acs-queue [instance "lifecycle" nil]))
+                (put @acs-queue [instance "lifecycle" nil]))
                 ;;update server
                 (do
-                  (.put acs-queue [(assoc instance :update true) "lifecycle" nil])))
+                  (put @acs-queue [(assoc instance :update true) "lifecycle" nil])))
             ;;when state is terminated
             (when (cached? (:instanceId instance))
               (log/info "Removing instance" (:instanceId instance))
-              (.put acs-queue [(assoc instance :delete true) "lifecycle" nil]))))
+              (put @acs-queue [(assoc instance :delete true) "lifecycle" nil]))))
 
 (defn refresh-instance
   [region instance-id]
@@ -84,7 +86,7 @@
 (defn rename-request
     [instance-id instance-name]
     (when-let [instance (get @acs-inventory (keyword instance-id) nil)]
-        (.put acs-queue [instance-id "rename" instance-name])))
+        (put @acs-queue [instance-id "rename" instance-name])))
 
 (defn rename-acs-instance!
     [instance-id instance-name]
@@ -146,7 +148,7 @@
         (doseq [[k v] @acs-inventory]
           (when-not (k imap)
             (log/info "Removing instance" k)
-            (.put acs-queue [(assoc (k @acs-inventory) :delete true) "lifecycle" nil])))
+            (put @acs-queue [(assoc (k @acs-inventory) :delete true) "lifecycle" nil])))
         ;;detection of new server
         (doseq [instance ilist]
           (manage-instance instance)))
@@ -157,7 +159,7 @@
     []
     (u/start-thread!
         (fn [] ;;consume queue
-          (when-let [[instance op params] (.take acs-queue)]
+          (when-let [[instance op params] (take @acs-queue)]
             ;; extract queue and pids from :radarly and dissoc :radarly data
             (when (= "lifecycle" op)
                 (update-acs-inventory! instance))
@@ -169,5 +171,9 @@
   []
   (let [refresh-period (periodic-seq (t/now) (t/minutes (:refresh-period (get-conf))))]
     (log/info "[Refresh] starting refresh acs loop")
-    (chime-at refresh-period
-        refresh)))
+    (let [stop-fn-refresh (chime-at refresh-period
+        refresh)
+          stop-fn-save (chime-at (periodic-seq (t/now) (t/seconds 5)))]
+        (fn []
+            (stop-fn-refresh)
+            (stop-fn-save)))))
