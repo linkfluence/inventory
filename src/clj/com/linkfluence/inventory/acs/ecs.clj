@@ -8,8 +8,8 @@
             [clojure.tools.logging :as log]
             [cheshire.core :as json]
             [com.linkfluence.inventory.acs.common :refer :all]
-            [aliyuncs.ecs.instance :as ecsi])
-  (:import [java.util.concurrent LinkedBlockingQueue]))
+            [aliyuncs.ecs.instance :as ecsi]
+            [com.linkfluence.inventory.queue :as queue :refer [put tke]]))
 
 ;;Handler for ali cloud ECS
 (def acs-inventory (atom {}))
@@ -23,6 +23,10 @@
   []
   (when-let [inventory (store/load-map (get-service-store "ecs"))]
     (reset! acs-inventory inventory)))
+
+(defn init-queue
+    [queue-spec]
+    (reset! acs-queue (queue/mk-queue (or queue-spec {}))))
 
 (defn save-inventory
   "Save on both local file and s3"
@@ -159,7 +163,7 @@
     []
     (u/start-thread!
         (fn [] ;;consume queue
-          (when-let [[instance op params] (take @acs-queue)]
+          (when-let [[instance op params] (tke @acs-queue)]
             ;; extract queue and pids from :radarly and dissoc :radarly data
             (when (= "lifecycle" op)
                 (update-acs-inventory! instance))
@@ -172,8 +176,9 @@
   (let [refresh-period (periodic-seq (t/now) (t/minutes (:refresh-period (get-conf))))]
     (log/info "[Refresh] starting refresh acs loop")
     (let [stop-fn-refresh (chime-at refresh-period
-        refresh)
-          stop-fn-save (chime-at (periodic-seq (t/now) (t/seconds 5)))]
+                            refresh)
+          stop-fn-save    (chime-at (periodic-seq (t/now) (t/seconds 5))
+                            save-inventory)]
         (fn []
             (stop-fn-refresh)
             (stop-fn-save)))))
