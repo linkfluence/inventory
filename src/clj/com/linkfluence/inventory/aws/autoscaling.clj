@@ -8,7 +8,8 @@
             [com.linkfluence.inventory.core :as inventory]
             [clojure.tools.logging :as log]
             [amazonica.aws.autoscaling :as asg]
-            [com.linkfluence.inventory.aws.common :refer :all])
+            [com.linkfluence.inventory.aws.common :refer :all]
+            [com.linkfluence.inventory.queue :as queue :refer [put tke]])
   (:import [java.util.concurrent LinkedBlockingQueue]))
 
 (def aws-inventory (atom {}))

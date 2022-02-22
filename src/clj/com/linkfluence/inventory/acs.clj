@@ -21,4 +21,5 @@
   [acs-conf]
   (acs/catch-errors? false)
   (common/set-conf acs-conf)
+  (ecs/init-queue acs-conf)
   (ecs/load-inventory!))

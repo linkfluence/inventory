@@ -9,7 +9,8 @@
             [clojure.tools.logging :as log]
             [cheshire.core :as json]
             [amazonica.aws.elasticache :as elasticache]
-            [com.linkfluence.inventory.aws.common :refer :all])
+            [com.linkfluence.inventory.aws.common :refer :all]
+            [com.linkfluence.inventory.queue :as queue :refer [put tke]])
   (:import [java.util.concurrent LinkedBlockingQueue]))
 
 

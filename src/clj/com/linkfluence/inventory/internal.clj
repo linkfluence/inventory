@@ -3,7 +3,8 @@
             [clojure.tools.logging :as log]
             [com.linkfluence.inventory.core :as inventory]
             [com.linkfluence.store :as store]
-            [com.linkfluence.utils :as u])
+            [com.linkfluence.utils :as u]
+            [com.linkfluence.inventory.queue :as queue :refer [put tke]])
   (:import [java.util.concurrent LinkedBlockingQueue]))
 
 ;@author Jean-Baptiste Besselat

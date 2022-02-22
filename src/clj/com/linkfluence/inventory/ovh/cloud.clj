@@ -9,7 +9,8 @@
             [ovh.cloud :as cloud]
             [chime :refer [chime-at]]
             [clj-time.core :as t]
-            [clj-time.periodic :refer [periodic-seq]])
+            [clj-time.periodic :refer [periodic-seq]]
+            [com.linkfluence.inventory.queue :as queue :refer [put tke]])
   (:import [java.io File]
            [java.util.concurrent LinkedBlockingQueue]))
 

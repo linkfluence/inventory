@@ -8,7 +8,8 @@
             [cheshire.core :refer :all]
             [clojure.spec.alpha :as spec]
             [com.linkfluence.inventory.caller :as caller]
-            [com.linkfluence.inventory.core :as inventory]))
+            [com.linkfluence.inventory.core :as inventory]
+            [com.linkfluence.inventory.queue :as queue :refer [put tke]]))
 
 ;; queue for inventory update
 (def ^LinkedBlockingQueue inventory-queue (LinkedBlockingQueue.))

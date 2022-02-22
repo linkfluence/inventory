@@ -14,7 +14,8 @@
             [clj-time.core :as t]
             [clj-time.periodic :refer [periodic-seq]]
             [clojure.spec.alpha :as spec]
-            [clj-yaml.core :as yaml])
+            [clj-yaml.core :as yaml]
+            [com.linkfluence.inventory.queue :as queue :refer [put tke]])
   (:import [java.io File]
            [java.util.concurrent LinkedBlockingQueue]))
 

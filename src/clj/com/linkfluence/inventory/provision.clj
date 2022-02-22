@@ -3,7 +3,8 @@
   (:require [com.linkfluence.inventory.caller :as caller]
             [com.linkfluence.utils :as utils]
             [com.linkfluence.inventory.core :as inventory]
-            [clojure.tools.logging :as log]))
+            [clojure.tools.logging :as log]
+            [com.linkfluence.inventory.queue :as queue :refer [put tke]]))
 
 ;@author Jean-Baptiste Besselat
 ;@Copyright Linkfluence SAS 2017

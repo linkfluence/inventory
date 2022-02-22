@@ -4,6 +4,12 @@
             [cheshire.core :refer :all])
   (:import [java.util.concurrent LinkedBlockingQueue]))
 
+(def queue-default-conf (atom {:type :linked-blocking-queue}))
+
+(defn configure!
+    [queue-spec]
+    (reset! queue-default-conf queue-spec))
+
 (defprotocol IQProto
   "Inventory queue proto"
   (put [q e] "push element to queue")
