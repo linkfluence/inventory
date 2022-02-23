@@ -8,7 +8,8 @@
               [clojure.java.shell :as shell]
               [digest]
               [clostache.parser :as template]
-              [clojure.spec.alpha :as spec])
+              [clojure.spec.alpha :as spec]
+              [com.linkfluence.inventory.queue :as queue :refer [put tke]])
     (:use [com.linkfluence.dns.common]
           [clojure.java.io]
           [clojure.walk]))
@@ -25,6 +26,9 @@
 ;; }
 
 (def zone-cache (atom nil))
+
+(def last-save (atom (System/currentTimeMillis)))
+(def item-not-saved (atom 0))
 
 ;queue for proceeding record operation
 (def ^LinkedBlockingQueue op-queue (LinkedBlockingQueue.))

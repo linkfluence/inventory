@@ -9,7 +9,8 @@
               [digest]
               [clostache.parser :as template]
               [clojure.spec.alpha :as spec]
-              [com.linkfluence.dns.zone :refer [zodb->db]])
+              [com.linkfluence.dns.zone :refer [zodb->db]]
+              [com.linkfluence.inventory.queue :as queue :refer [put tke]])
     (:use [com.linkfluence.dns.common]
           [clojure.java.io]
           [clojure.walk]))
@@ -80,6 +81,9 @@
 
 (spec/def ::del-record
   (spec/keys :req-un [::type ::name]))
+
+(def last-save (atom (System/currentTimeMillis)))
+(def item-not-saved (atom 0))
 
 ;queue for proceeding record operation
 (def ^LinkedBlockingQueue op-queue (LinkedBlockingQueue.))
