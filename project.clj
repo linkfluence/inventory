@@ -35,7 +35,9 @@
                  [luhhujbb/leaseweb "0.3.7"]
                  [luhhujbb/clj-gcloud-compute "0.118.0-alpha-3"]
                  ;;scheduling
-                 [jarohen/chime "0.2.2"]
+                 [jarohen/chime "0.3.3"]
+                 ;;async op
+                 [org.clojure/core.async "1.5.648"]
                  ;;Storage
                  [luhhujbb/oss-117 "0.1.3"] ;;ali cloud
                  [luhhujbb/envoy "0.3.1"] ;;consul

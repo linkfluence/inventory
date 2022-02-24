@@ -1,7 +1,10 @@
 (ns com.linkfluence.dns.zone
     (:import [java.io File]
              [java.util.concurrent LinkedBlockingQueue])
-    (:require [clojure.string :as str]
+    (:require [chime :refer [chime-at]]
+              [clj-time.core :as t]
+              [clj-time.periodic :refer [periodic-seq]]
+              [clojure.string :as str]
               [clojure.tools.logging :as log]
               [com.linkfluence.store :as store]
               [com.linkfluence.utils :as utils]
@@ -29,9 +32,10 @@
 
 (def last-save (atom (System/currentTimeMillis)))
 (def item-not-saved (atom 0))
-
-;queue for proceeding record operation
-(def ^LinkedBlockingQueue op-queue (LinkedBlockingQueue.))
+(def op-queue (atom nil))
+(defn init-queue
+    [queue-spec]
+    (reset! op-queue (queue/mk-queue (or queue-spec {}))))
 
 (defn zone->db
   [zone-name]
@@ -240,7 +244,7 @@
                           (generate-zones))
            "sync" (sync)
             (log/error "op is not valid"))
-            (restart-dns op-queue)))
+            (restart-dns op-queue (utils/save? last-save item-not-saved))))
 
 (defn check-zone
     [zone]
@@ -253,14 +257,14 @@
     (cond
         ;;sync
         (= "sync" op)
-        (.put op-queue [zone-name op zone])
+        (put @op-queue [zone-name op zone])
         ;;zone
         (= "create" op)
         (if (spec/valid? ::zone zone)
-            (.put op-queue [zone-name op zone])
+            (put @op-queue [zone-name op zone])
             (log/error "Checks failed for operation on zone: , spec result :" (spec/conform ::zone zone)))
         (= "delete" op)
-        (.put op-queue [zone-name op zone])
+        (put @op-queue [zone-name op zone])
         :else
         nil)))
 
@@ -269,7 +273,7 @@
   []
   (utils/start-thread!
       (fn [] ;;consume queue
-        (when-let [op (.take op-queue)]
+        (when-let [op (tke @op-queue)]
           ;; extract queue and pids from :radarly and dissoc :radarly data
           (execute-operation! op)))
       "DNS Zone updater consumer"))
@@ -281,6 +285,10 @@
     (do (sync)
         (restart-dns op-queue)
         (if-not (ro?)
-            [(start-operation-consumer!)]
+            [(start-operation-consumer!)
+             (chime-at (periodic-seq (t/now) (t/seconds 5))
+                           (fn []
+                               (restart-dns)
+                               (utils/fsync "dns")))]
             []))
     []))

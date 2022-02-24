@@ -1,7 +1,10 @@
 (ns com.linkfluence.dns.record
     (:import [java.io File]
              [java.util.concurrent LinkedBlockingQueue])
-    (:require [clojure.string :as str]
+    (:require [chime :refer [chime-at]]
+              [clj-time.core :as t]
+              [clj-time.periodic :refer [periodic-seq]]
+              [clojure.string :as str]
               [clojure.tools.logging :as log]
               [com.linkfluence.store :as store]
               [com.linkfluence.utils :as utils]
@@ -84,9 +87,11 @@
 
 (def last-save (atom (System/currentTimeMillis)))
 (def item-not-saved (atom 0))
+(def op-queue (atom nil))
+(defn init-queue
+    [queue-spec]
+    (reset! op-queue (queue/mk-queue (or queue-spec {}))))
 
-;queue for proceeding record operation
-(def ^LinkedBlockingQueue op-queue (LinkedBlockingQueue.))
 
 (defn is-multiline?
   "indicate if is a multi-line record"
@@ -259,11 +264,6 @@
                          (= "CNAME" (:type record)))
                      (some? reg-conflict-record))}))
 
-(defn pending-operation
-  "Return queue size for pending operation"
-  []
-  (.size op-queue))
-
 (defn execute-operation!
   "A record is a map containint the following keys
   - name
@@ -286,13 +286,13 @@
             (do
               (update-cache! zodb-name operation record)
               (update-db-file zodb-name operation record)
-              (update-serial! zodb-name))
+              (update-serial! zodb-name)
+              (save-zone zodb-name))
               (log/info "[DNS] record" record "has this state" rec-state)))
         ;;Wait for eventual batched events
         (Thread/sleep 2000)
-        (when (= 0 (pending-operation))
-          (restart-dns op-queue)
-          (save-zone zodb-name)
+        (when (utils/save? last-save item-not-saved)
+          (restart-dns op-queue true)
           (utils/fsync "dns")))
           (log/error "DB does not exist : do nothing" zodb-name))))
 
@@ -340,19 +340,19 @@
   (cond
     ;;sync
     (= "sync" op)
-    (.put op-queue [(zodb->db zodb-name) op record])
+    (put @op-queue [(zodb->db zodb-name) op record])
     (= "delete" op)
     (if (and
           (map? record)
           (spec/valid? ::del-record record))
-        (.put op-queue [(zodb->db zodb-name) op record])
+        (put @op-queue [(zodb->db zodb-name) op record])
         (log/error "Checks failed for operation on record: map :"(map? record) "- check :" (spec/conform ::del-record record)))
     ;;record
     (some? (#{"add" "update"} op))
     (if (and
           (map? record)
           (check-record record))
-      (.put op-queue [(zodb->db zodb-name) op record])
+      (put @op-queue [(zodb->db zodb-name) op record])
       (log/error "Checks failed for operation on record: map :"(map? record) "- check :" (spec/conform ::record record)))))
 
 (defn add-operations
@@ -366,7 +366,7 @@
   []
   (utils/start-thread!
       (fn [] ;;consume queue
-        (when-let [op (.take op-queue)]
+        (when-let [op (tke @op-queue)]
           ;; extract queue and pids from :radarly and dissoc :radarly data
           (execute-operation! op)))
       "DNS record updater consumer"))
@@ -375,5 +375,9 @@
   []
   (if-not (or (nil? @dns-conf) (ro?))
     ;start dequeue thread
-    [(start-operation-consumer!)]
+    [(start-operation-consumer!)
+     (chime-at (periodic-seq (t/now) (t/seconds 5))
+                    (fn []
+                        (restart-dns)
+                        (utils/fsync "dns")))]
     []))

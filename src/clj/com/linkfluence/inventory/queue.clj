@@ -31,17 +31,14 @@
 (deftype IQKafkaQueue [q]
   IQProto
   (put [q e] (kafka/send (:producer q) (:topic q) (generate-string e)))
-  (tke [q] (if (= 0 (count (deref (:buffer q))))
+  (tke [q] (if (= 0 (.size (:buffer q)))
               (do
-                (kafka/commit-offsets! (:consumer q))
-                (let [records (kafka/poll (:consumer q))
-                      el (first records)]
-                      (reset! (:buffer q) (rest records))
-                      (parse-string (:value el) true)))
-                (let [records (deref (:buffer q))
-                      el (first records)]
-                      (reset! (:buffer q) (rest records))
-                      (parse-string (:value el) true))))
+                (let [records (kafka/poll (:consumer q))]
+                        (doseq [el records]
+                            (.put (:buffer q) (parse-string (:value el) true))
+                        (kafka/commit-offsets! (:consumer q))))
+                (.take (:buffer q)))
+                (.take (:buffer q))))
   (size [q] -1)
   (close [q] (do
                (kafka/close (:consumer q)
@@ -54,7 +51,7 @@
                                  "enable.auto.commit" "false"})
                    :producer (kafka/producer bootstrap-servers)
                    :admin (kafka/admin bootstrap-servers)
-                   :buffer (atom [])
+                   :buffer (LinkedBlockingQueue.)
                    :topic topic
                    :group-id group-id
                    :bootstrap-servers bootstrap-servers}))
