@@ -9,16 +9,15 @@
             [clojure.tools.logging :as log]
             [amazonica.aws.ec2 :as ec2]
             [com.linkfluence.inventory.aws.common :refer :all]
-            [com.linkfluence.inventory.queue :as queue :refer [put tke]])
-  (:import [java.util.concurrent LinkedBlockingQueue]))
+            [com.linkfluence.inventory.queue :as queue :refer [put tke]]))
 
 
 (def aws-inventory (atom {}))
 
 (def last-save (atom (System/currentTimeMillis)))
-(def item-not-save (atom 0))
+(def items-not-saved (atom 0))
 
-(def ^LinkedBlockingQueue aws-queue (LinkedBlockingQueue.))
+(def aws-queue (atom nil))
 
 (defn load-inventory!
   []
@@ -28,9 +27,12 @@
 (defn save-inventory
   "Save on both local file and s3"
   []
-  (when (= 0 (.size aws-queue))
-    (store/save-map (get-service-store "ec2") @aws-inventory)
-    (u/fsync "aws/ec2")))
+  (if (u/save? last-save items-not-saved)
+    (do
+        (store/save-map (get-service-store "ec2") @aws-inventory)
+        (u/reset-save! last-save items-not-saved)
+        (u/fsync "aws/ec2"))
+    (swap! items-not-saved)))
 
 (defn cached?
   "check if corresponding domain exist in cache inventory"
@@ -203,7 +205,7 @@
   []
   (u/start-thread!
       (fn [] ;;consume queue
-        (when-let [instance (.take aws-queue)]
+        (when-let [instance (tke @aws-queue)]
           ;; extract queue and pids from :radarly and dissoc :radarly data
           (update-aws-inventory! instance)))
       "aws ec2 inventory consumer"))
@@ -215,14 +217,14 @@
               ;;add server
               (do
                 (log/info "Adding instance" (:instance-id instance)  "to aws queue")
-                (.put aws-queue instance))
+                (put @aws-queue instance))
                 ;;update server
                 (do
-                  (.put aws-queue (assoc instance :update true))))
+                  (put @aws-queue (assoc instance :update true))))
             ;;when state is terminated
             (when (cached? (:instance-id instance))
               (log/info "Removing instance" (:instance-id instance))
-              (.put aws-queue (assoc instance :delete true)))))
+              (put @aws-queue (assoc instance :delete true)))))
 
 (defn refresh-instance
   [region instance-id]
@@ -246,10 +248,17 @@
         (doseq [[k v] @aws-inventory]
           (when-not (k imap)
             (log/info "Removing instance" k)
-            (.put aws-queue (assoc (k @aws-inventory) :delete true))))
+            (put @aws-queue (assoc (k @aws-inventory) :delete true))))
         ;;detection of new server
         (doseq [instance ilist]
           (manage-instance instance)))))
+
+(defn start-saver!
+  []
+  (chime-at (periodic-seq (t/now) (t/seconds 5))
+                  (fn []
+                      (when (u/save? last-save items-not-saved)
+                      (save-inventory)))))
 
 ;loop to poll aws api
 (defn start-loop!

@@ -9,15 +9,14 @@
             [clojure.tools.logging :as log]
             [amazonica.aws.autoscaling :as asg]
             [com.linkfluence.inventory.aws.common :refer :all]
-            [com.linkfluence.inventory.queue :as queue :refer [put tke]])
-  (:import [java.util.concurrent LinkedBlockingQueue]))
+            [com.linkfluence.inventory.queue :as queue :refer [put tke]]))
 
 (def aws-inventory (atom {}))
 
 (def last-save (atom (System/currentTimeMillis)))
-(def item-not-save (atom 0))
+(def items-not-saved (atom 0))
 
-(def ^LinkedBlockingQueue aws-asg-queue (LinkedBlockingQueue.))
+(def aws-asg-queue (atom nil))
 
 
 ;;load and store inventory
@@ -29,9 +28,12 @@
 (defn save-inventory
   "Save on both local file and s3"
   []
-  (when (= 0 (.size aws-asg-queue))
-    (store/save-map (get-service-store "asg") @aws-inventory)
-    (u/fsync "aws/asg")))
+  (if (u/save? last-save items-not-saved)
+    (do
+        (store/save-map (get-service-store "asg") @aws-inventory)
+        (u/reset-save! last-save items-not-saved)
+        (u/fsync "aws/asg"))
+    (swap! items-not-saved inc)))
 
 (defn cached?
   "check if corresponding domain exist in cache inventory"
@@ -135,7 +137,7 @@
   []
   (u/start-thread!
       (fn [] ;;consume queue
-        (when-let [asg (.take aws-asg-queue)]
+        (when-let [asg (tke @aws-asg-queue)]
           ;; extract queue and pids from :radarly and dissoc :radarly data
           (update-aws-inventory! asg)))
       "aws asg inventory consumer"))
@@ -162,16 +164,16 @@
                   ;;add asg
                   (do
                     (log/info "Adding asg" asg-id  "to aws asg queue")
-                    (.put aws-asg-queue (assoc asg :id asg-id)))
+                    (put @aws-asg-queue (assoc asg :id asg-id)))
                     ;;update asg
                   (do
-                    (.put aws-asg-queue (assoc asg :update true :id asg-id))))))
+                    (put @aws-asg-queue (assoc asg :update true :id asg-id))))))
                     (recur (rest regions) asgmap*)))
             ;;detection of deleted asg
             (doseq [[k v] @aws-inventory]
               (when-not (k asgmap)
                 (log/info "Removing asg" k)
-                (.put aws-asg-queue (assoc (k @aws-inventory) :delete true))))))
+                (put @aws-asg-queue (assoc (k @aws-inventory) :delete true))))))
                 (catch Exception e
                   (log/error "Failed to retrieve aws ASG")))
                 ))))

@@ -1,5 +1,8 @@
 (ns com.linkfluence.inventory.internal
   (:require [clojure.string :as str]
+            [chime :refer [chime-at]]
+            [clj-time.core :as t]
+            [clj-time.periodic :refer [periodic-seq]]
             [clojure.tools.logging :as log]
             [com.linkfluence.inventory.core :as inventory]
             [com.linkfluence.store :as store]
@@ -212,7 +215,11 @@
 (defn start!
   []
   (if-not (nil? @internal-conf)
-    [(start-op-consumer!)]
+    [(start-op-consumer!)
+     (chime-at (periodic-seq (t/now) (t/seconds 5))
+                     (fn []
+                         (when (u/save? last-save items-not-saved)
+                         (save-inventory))))]
     []))
 
 (defn configure!
