@@ -43,7 +43,6 @@
                         (inventory/load-inventory)
                         (log/info "[FSYNC] received inventory update notfication"))
                       (u/mk-resp 202 "success" {} "Fsync submitted")))
-  (GET "/event" [] (u/mk-resp 200 "success" {:data {:size (inventory/get-event-queue-size) }}))
   (POST "/event" [event] (put-event event))
   (POST "/events" [events] (put-events events))
 

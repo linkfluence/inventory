@@ -1,13 +1,17 @@
 (ns com.linkfluence.inventory.core
   (:import [java.util.concurrent LinkedBlockingQueue])
-  (:require [clojure.string :as str]
+  (:require [chime :refer [chime-at]]
+            [clj-time.core :as t]
+            [clj-time.periodic :refer [periodic-seq]]
+            [clojure.string :as str]
             [clojure.tools.logging :as log]
             [com.linkfluence.store :as store]
             [com.linkfluence.utils :as u]
             [clj-http.client :as http]
             [cheshire.core :refer :all]
             [clojure.spec.alpha :as spec]
-            [com.linkfluence.inventory.caller :as caller]))
+            [com.linkfluence.inventory.caller :as caller]
+            [com.linkfluence.inventory.queue :as queue :refer [init-queue put tke]]))
 
 ; @author Jean-Baptiste Besselat
 ; @Copyright Linkfluence SAS 2017
@@ -48,7 +52,10 @@
 ; group : for resource group
 
 ;; queue for inventory update
-(def ^LinkedBlockingQueue inventory-queue (LinkedBlockingQueue.))
+(def inventory-queue (atom nil))
+
+(def last-save (atom (System/currentTimeMillis)))
+(def items-not-saved (atom 0))
 
 ;;this the main resource inventory collecting resources from all providers handlers
 (def resources (atom {}))
@@ -66,12 +73,6 @@
 (defn ro?
   []
   (:read-only @conf))
-
-;;return queue size
-(defn get-event-queue-size
-  []
-  (.size inventory-queue))
-
 
 (defn post-event
   [master ev]
@@ -97,12 +98,12 @@
 (defn send-event
   [master event]
   (cond
-    (and (= 0 (.size inventory-queue)) (nil? @bulk))
+    (and (u/save? last-save items-not-saved) (nil? @bulk))
     (loop []
       (when-not (post-event master event)
         (Thread/sleep 60000)
         (recur)))
-    (and (= 0 (.size inventory-queue)) (not (nil? @bulk)))
+    (and (u/save? last-save items-not-saved) (not (nil? @bulk)))
     (do
       (swap! bulk conj event)
       (loop []
@@ -119,7 +120,7 @@
   (when (or
           (not (ro?))
           (not (nil? (get @conf :master nil))))
-    (.put inventory-queue ev)))
+    (put @inventory-queue ev)))
 
 ;;add event Update
 (defn hide-event
@@ -127,7 +128,7 @@
   (when (or
           (not (ro?))
           (not (nil? (get @conf :master nil))))
-    (.put inventory-queue {:type (name type)
+    (put @inventory-queue {:type (name type)
                            :id (keyword id)
                            :tags [{:name "hidden" :value (if hide "true" "false")}]})))
 
@@ -315,6 +316,7 @@
 (defn save-inventory
   []
   ;;applicable if we wan't to store something (ie : not during test)
+  (if (u/save? last-save items-not-saved)
   (when (:store @conf)
   (when-not (ro?)
   ;save groups
@@ -333,7 +335,10 @@
           tag-view)
         (let [res-view (get-aggregated-resources (:tags view) (:with-alias? view))]
           (swap! views assoc (keyword (:name view)) res-view)
-          res-view)))))))
+          res-view))))
+  (u/fsync "inventory"))
+  (u/reset-save! last-save items-not-saved))
+  (swap! items-not-saved inc)))
 
 ;;group mgt
 (defn get-group-tags
@@ -468,9 +473,8 @@
                       (swap! aliases assoc kid (dissoc alias (keyword (:name tag))))))))
                 ;;deletion
                 (swap! aliases dissoc kid))
-                (when (= 0 (.size inventory-queue))
-                  (save-inventory)
-                  (u/fsync "inventory")))
+                (save-inventory))
+
         (let [rid (:resource-id ev)
               nrid (name rid)]
         ;;alias creation
@@ -538,9 +542,7 @@
         ;;wipe this groups from inventory
         (swap! groups dissoc kid))))
     ;;save everything
-    (when (= 0 (.size inventory-queue))
-      (save-inventory)
-      (u/fsync "inventory")))
+    (save-inventory))
 
 ;;get resources
 (defn get-resources
@@ -677,9 +679,7 @@
             (swap! aliases dissoc k)))
         (swap! resources dissoc kid))))
     ;;save everything
-    (when (= 0 (.size inventory-queue))
-      (save-inventory)
-      (u/fsync "inventory")))
+    (save-inventory))
 
 (defn update-inventory!
   "generic inventory update"
@@ -696,7 +696,7 @@
   []
   (u/start-thread!
       (fn [] ;;consume queue
-        (when-let [ev (.take inventory-queue)]
+        (when-let [ev (tke @inventory-queue)]
           (update-inventory! ev)))
       "Inventory Consumer"))
 
@@ -706,10 +706,15 @@
         (not (ro?))
         (and (ro?)
               (not (nil? (get @conf :master)))))
-    [(start-inventory-consumer!)]
+    [(start-inventory-consumer!)
+     (chime-at (periodic-seq (t/now) (t/seconds 5))
+                      (fn []
+                          (when (u/save? last-save items-not-saved)
+                          (save-inventory))))]
     []))
 
 (defn configure!
   [inventory-conf]
   (reset! conf inventory-conf)
+  (init-queue inventory-queue (:queue inventory-conf))
   (load-inventory))

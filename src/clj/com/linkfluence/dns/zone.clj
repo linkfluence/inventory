@@ -31,11 +31,8 @@
 (def zone-cache (atom nil))
 
 (def last-save (atom (System/currentTimeMillis)))
-(def item-not-saved (atom 0))
+(def items-not-saved (atom 0))
 (def op-queue (atom nil))
-(defn init-queue
-    [queue-spec]
-    (reset! op-queue (queue/mk-queue (or queue-spec {}))))
 
 (defn zone->db
   [zone-name]
@@ -244,7 +241,12 @@
                           (generate-zones))
            "sync" (sync)
             (log/error "op is not valid"))
-            (restart-dns op-queue (utils/save? last-save item-not-saved))))
+            (if (utils/save? last-save items-not-saved)
+                (do
+                  (restart-dns op-queue (utils/save? last-save items-not-saved))
+                  (utils/reset-save! last-save items-not-saved)
+                  (utils/fsync "dns"))
+                  (swap! items-not-saved inc))))
 
 (defn check-zone
     [zone]
@@ -288,7 +290,9 @@
             [(start-operation-consumer!)
              (chime-at (periodic-seq (t/now) (t/seconds 5))
                            (fn []
-                               (restart-dns)
-                               (utils/fsync "dns")))]
+                               (when (utils/save? last-save items-not-saved)
+                                     (restart-dns op-queue (utils/save? last-save items-not-saved))
+                                     (utils/reset-save! last-save items-not-saved)
+                                     (utils/fsync "dns"))))]
             []))
     []))

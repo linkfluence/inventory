@@ -1,6 +1,5 @@
 (ns com.linkfluence.dns.record
-    (:import [java.io File]
-             [java.util.concurrent LinkedBlockingQueue])
+    (:import [java.io File])
     (:require [chime :refer [chime-at]]
               [clj-time.core :as t]
               [clj-time.periodic :refer [periodic-seq]]
@@ -86,11 +85,8 @@
   (spec/keys :req-un [::type ::name]))
 
 (def last-save (atom (System/currentTimeMillis)))
-(def item-not-saved (atom 0))
+(def items-not-saved (atom 0))
 (def op-queue (atom nil))
-(defn init-queue
-    [queue-spec]
-    (reset! op-queue (queue/mk-queue (or queue-spec {}))))
 
 
 (defn is-multiline?
@@ -287,12 +283,14 @@
               (update-cache! zodb-name operation record)
               (update-db-file zodb-name operation record)
               (update-serial! zodb-name)
-              (save-zone zodb-name))
+              (save-zone zodb-name)
+              (swap! items-not-saved inc))
               (log/info "[DNS] record" record "has this state" rec-state)))
         ;;Wait for eventual batched events
         (Thread/sleep 2000)
-        (when (utils/save? last-save item-not-saved)
+        (when (utils/save? last-save items-not-saved)
           (restart-dns op-queue true)
+          (utils/reset-save! last-save items-not-saved)
           (utils/fsync "dns")))
           (log/error "DB does not exist : do nothing" zodb-name))))
 

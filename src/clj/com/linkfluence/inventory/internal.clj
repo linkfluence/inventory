@@ -4,8 +4,7 @@
             [com.linkfluence.inventory.core :as inventory]
             [com.linkfluence.store :as store]
             [com.linkfluence.utils :as u]
-            [com.linkfluence.inventory.queue :as queue :refer [put tke]])
-  (:import [java.util.concurrent LinkedBlockingQueue]))
+            [com.linkfluence.inventory.queue :as queue :refer [init-queue put tke]]))
 
 ;@author Jean-Baptiste Besselat
 ;@Copyright Linkfluence SAS 2018
@@ -34,7 +33,10 @@
 
 (def internal-inventory (atom {}))
 
-(def ^LinkedBlockingQueue internal-queue (LinkedBlockingQueue.))
+(def internal-queue (atom nil))
+
+(def last-save (atom (System/currentTimeMillis)))
+(def items-not-saved (atom 0))
 
 (defn new-uid
   [provider]
@@ -69,9 +71,12 @@
   "Save on both local file and s3"
   []
   (when-not (ro?)
-    (when (and (= 0 (.size internal-queue)) (:store @internal-conf))
+    (if (u/save? last-save items-not-saved)
+    (when (:store @internal-conf)
         (store/save-map (:store @internal-conf) @internal-inventory)
-        (u/fsync "internal"))))
+        (u/reset-save! last-save items-not-saved)
+        (u/fsync "internal"))
+    (swap! items-not-saved inc))))
 
 (defn remove-empty-tags
     [tags]

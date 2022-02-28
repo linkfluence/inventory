@@ -9,13 +9,13 @@
             [cheshire.core :as json]
             [com.linkfluence.inventory.acs.common :refer :all]
             [aliyuncs.ecs.instance :as ecsi]
-            [com.linkfluence.inventory.queue :as queue :refer [put tke]]))
+            [com.linkfluence.inventory.queue :as queue :refer [init-queue put tke]]))
 
 ;;Handler for ali cloud ECS
 (def acs-inventory (atom {}))
 
 (def last-save (atom (System/currentTimeMillis)))
-(def item-not-saved (atom 0))
+(def items-not-saved (atom 0))
 
 (def acs-queue (atom nil))
 
@@ -24,18 +24,15 @@
   (when-let [inventory (store/load-map (get-service-store "ecs"))]
     (reset! acs-inventory inventory)))
 
-(defn init-queue
-    [queue-spec]
-    (reset! acs-queue (queue/mk-queue (or queue-spec {}))))
-
 (defn save-inventory
   "Save on both local file and s3"
   []
-  (if (u/save? last-save item-not-saved)
+  (if (u/save? last-save items-not-saved)
     (do
         (store/save-map (get-service-store "ecs") @acs-inventory)
+        (u/reset-save! last-save items-not-saved)
         (u/fsync "acs/ecs"))
-    (swap! item-not-saved inc)))
+    (swap! items-not-saved inc)))
 
 (defn get-acs-inventory
   "Retrieve a list of filtered instance or not"

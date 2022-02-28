@@ -70,3 +70,7 @@
 (defmethod mk-queue :default
     [_]
     (iq-linked-blocking-queue))
+
+(defn init-queue
+    [op-queue queue-spec]
+    (reset! op-queue (mk-queue (or queue-spec {}))))

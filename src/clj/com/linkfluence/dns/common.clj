@@ -1,6 +1,5 @@
 (ns com.linkfluence.dns.common
-    (:import [java.io File]
-             [java.util.concurrent LinkedBlockingQueue])
+    (:import [java.io File])
     (:require [clojure.string :as str]
               [clojure.tools.logging :as log]
               [com.linkfluence.store :as store]

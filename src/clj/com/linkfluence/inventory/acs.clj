@@ -1,6 +1,7 @@
 (ns com.linkfluence.inventory.acs
   (:require [com.linkfluence.inventory.acs.common :as common]
             [com.linkfluence.inventory.acs.ecs :as ecs]
+            [com.linkfluence.inventory.queue :refer [init-queue]]
             [aliyuncs.core :as acs]))
 
 ; @author Jean-Baptiste Besselat
@@ -21,5 +22,5 @@
   [acs-conf]
   (acs/catch-errors? false)
   (common/set-conf acs-conf)
-  (ecs/init-queue acs-conf)
+  (init-queue  ecs/acs-queue acs-conf)
   (ecs/load-inventory!))
