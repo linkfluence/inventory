@@ -32,7 +32,7 @@
         (store/save-map (get-service-store "ec2") @aws-inventory)
         (u/reset-save! last-save items-not-saved)
         (u/fsync "aws/ec2"))
-    (swap! items-not-saved)))
+    (swap! items-not-saved inc)))
 
 (defn cached?
   "check if corresponding domain exist in cache inventory"
@@ -252,13 +252,6 @@
         ;;detection of new server
         (doseq [instance ilist]
           (manage-instance instance)))))
-
-(defn start-saver!
-  []
-  (chime-at (periodic-seq (t/now) (t/seconds 5))
-                  (fn []
-                      (when (u/save? last-save items-not-saved)
-                      (save-inventory)))))
 
 ;loop to poll aws api
 (defn start-loop!

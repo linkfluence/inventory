@@ -42,7 +42,10 @@
   [aws-conf]
   (aws-common/set-conf aws-conf)
   (ec2/load-inventory!)
+  (init-queue ec2/aws-queue (:ec2-queue aws-conf))
   (asg/load-inventory!)
   (init-queue asg/aws-asg-queue (:asg-queue aws-conf))
   (rds/load-inventory!)
-  (elasticache/load-inventory!))
+  (init-queue rds/aws-queue (:rds-queue aws-conf))
+  (elasticache/load-inventory!)
+  (init-queue elasticache/aws-queue (:elasticache-queue aws-conf)))

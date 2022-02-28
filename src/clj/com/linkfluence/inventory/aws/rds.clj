@@ -17,7 +17,7 @@
 (def last-save (atom (System/currentTimeMillis)))
 (def items-not-saved (atom 0))
 
-(def ^LinkedBlockingQueue aws-queue (LinkedBlockingQueue.))
+(def aws-queue (atom nil))
 
 ;;load and store inventory
 (defn load-inventory!
@@ -28,9 +28,12 @@
 (defn save-inventory
   "Save on both local file and s3"
   []
-  (when (= 0 (.size aws-queue))
-    (store/save-map (get-service-store "rds") @aws-inventory)
-    (u/fsync "aws/rds")))
+  (if (u/save? last-save items-not-saved)
+    (do
+        (store/save-map (get-service-store "rds") @aws-inventory)
+        (u/reset-save! last-save items-not-saved)
+        (u/fsync "aws/rds"))
+    (swap! items-not-saved inc)))
 
 (defn cached?
   "check if corresponding domain exist in cache inventory"
@@ -150,7 +153,7 @@
   []
     (u/start-thread!
       (fn [] ;;consume queue
-        (when-let [instance (.take aws-queue)]
+        (when-let [instance (tke @aws-queue)]
           ;; extract queue and pids from :radarly and dissoc :radarly data
           (update-aws-inventory! instance)))
       "aws rds inventory consumer"))
@@ -173,14 +176,14 @@
             (doseq [[k v] @aws-inventory]
               (when-not (k dbimap)
                 (log/info "Removing db-instance" k)
-                (.put aws-queue (assoc (k @aws-inventory) :delete true))))
+                (put @aws-queue (assoc (k @aws-inventory) :delete true))))
             ;;add
             (doseq [instance db-instances]
               (if (cached? (:unique-dbinstance-identifier instance))
                 ;;update
                 (do
-                  (.put aws-queue (assoc instance :update true)))
+                  (put @aws-queue (assoc instance :update true)))
                 ;;add
                 (do
                   (log/info "Adding db-instance" (:unique-dbinstance-identifier instance)  "to aws queue")
-                  (.put aws-queue instance))))))))))
+                  (put @aws-queue instance))))))))))

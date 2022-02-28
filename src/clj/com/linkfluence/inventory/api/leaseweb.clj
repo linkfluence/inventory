@@ -25,7 +25,6 @@
                         (log/info "[FSYNC] received lsw update notification"))
                       (u/mk-resp 202 "success" {} "Operation submitted"))
                       (u/mk-resp 403 "error" {} "Not read only, sync forbidden")))
-  (GET "/event" [] (u/mk-resp 200 "success" {:data {:size (lsw/get-lsw-event-queue-size)}}))
   (POST "/disable-server-install" [] (u/mk-resp 200 "success" {:data (lsw/disable-server-install! true)}))
   (POST "/enable-server-install" [] (u/mk-resp 200 "success" {:data (lsw/disable-server-install! false)}))
   (GET "/install-state" [] (u/mk-resp 200 "success" {:data (lsw/get-install-loop-state)}))

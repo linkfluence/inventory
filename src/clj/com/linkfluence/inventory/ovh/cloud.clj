@@ -10,7 +10,7 @@
             [chime :refer [chime-at]]
             [clj-time.core :as t]
             [clj-time.periodic :refer [periodic-seq]]
-            [com.linkfluence.inventory.queue :as queue :refer [put tke]])
+            [com.linkfluence.inventory.queue :as queue :refer [init-queue put tke]])
   (:import [java.io File]
            [java.util.concurrent LinkedBlockingQueue]))
 
@@ -19,13 +19,13 @@
 (def ovh-inventory (atom {}))
 
 (def last-save (atom (System/currentTimeMillis)))
-(def item-not-save (atom 0))
+(def items-not-saved (atom 0))
 
 (defn ro?
   []
   (:read-only @ovh-conf))
 
-(def ^LinkedBlockingQueue ovh-queue (LinkedBlockingQueue.))
+(def ovh-queue (atom nil))
 
 (defn get-ovh-event-queue-size
   []
@@ -40,9 +40,13 @@
 (defn save-inventory
   "Save on both local file and s3"
   []
-  (when (and (= 0 (.size ovh-queue)) (not (ro?)))
-    (store/save-map (:store @ovh-conf) @ovh-inventory))
-    (u/fsync "ovh/cloud"))
+  (when (not (ro?))
+  (if (u/save? last-save items-not-saved)
+    (do
+        (store/save-map (:store @ovh-conf) @ovh-inventory)
+        (u/reset-save! last-save items-not-saved)
+        (u/fsync "ovh/cloud"))
+    (swap! items-not-saved inc))))
 
 (defn- cached?
   "check if corresponding instance exist in cache inventory"
@@ -149,7 +153,7 @@
 (defn bootstrap
      [instance-id]
      (when-let [instance (get @ovh-inventory (keyword instance-id))]
-         (.put ovh-queue [instance "bootstrap" nil])))
+         (put @ovh-queue [instance "bootstrap" nil])))
 
 (defn- reboot-instance
   [instance-id]
@@ -159,7 +163,7 @@
   "Send reboot event"
   [instance-id]
   (when-not (ro?)
-  (.put ovh-queue [instance-id "reboot" nil])))
+  (put @ovh-queue [instance-id "reboot" nil])))
 
 (defn- rename-instance!
     [instance-id instance-name]
@@ -175,7 +179,7 @@
     "Send rename event"
     [instance-id name]
     (when-not (ro?)
-        (.put ovh-queue [instance-id "rename" name])))
+        (put @ovh-queue [instance-id "rename" name])))
 
 (defn- instance-operation!
   "Send bootstrap, reverse or delete operation"
@@ -224,7 +228,7 @@
                             (= "UP" (get @regions-instance-service-state region)))
                         (do
                             (log/info "Deleting instance" (name k) "from ovh inventory")
-                            (.put ovh-queue [v "delete" nil]))
+                            (put @ovh-queue [v "delete" nil]))
                         (log/info
                             "Ignoring instance missing since region" region "is not up "
                             "(region: " (get @regions-state region) "/instance:"(get @regions-instance-service-state region) ")")))))))
@@ -233,9 +237,9 @@
               (if (and (not (cached? instance)) (= "ACTIVE" (:status instance)))
                 (do
                   (log/info "Adding instance" (:id instance) "to ovh-cloud queue")
-                  (.put ovh-queue [instance "bootstrap" nil]))
+                  (put @ovh-queue [instance "bootstrap" nil]))
                 (when (= "ACTIVE" (:status instance))
-                  (.put ovh-queue [instance "update" nil]))))))
+                  (put @ovh-queue [instance "update" nil]))))))
 
 ;;loop to poll ovh api
 (defn- start-ovh-loop!
@@ -255,7 +259,7 @@
   (when-not (:read-only @ovh-conf)
   (u/start-thread!
       (fn [] ;;consume queue
-        (when-let [ev (.take ovh-queue)]
+        (when-let [ev (tke @ovh-queue)]
           ;; extract queue and pids from :radarly and dissoc :radarly data
           (instance-operation! ev)))
       "ovh cloud operation consumer")))
@@ -266,10 +270,17 @@
   []
   (into [] (map (fn [[k v]] k) @ovh-inventory)))
 
+(defn start-saver!
+[]
+(chime-at (periodic-seq (t/now) (t/seconds 5))
+              (fn []
+                  (when (u/save? last-save items-not-saved)
+                  (save-inventory)))))
+
 (defn start!
   []
   (if-not (or (nil? @ovh-conf) (ro?))
-    [{:stop (start-ovh-loop!)} (start-op-consumer!)]
+    [{:stop (start-ovh-loop!)} (start-op-consumer!) (start-saver!)]
     []))
 
 

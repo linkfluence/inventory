@@ -11,7 +11,7 @@
             [chime :refer [chime-at]]
             [clj-time.core :as t]
             [clj-time.periodic :refer [periodic-seq]]
-            [com.linkfluence.inventory.queue :as queue :refer [put tke]])
+            [com.linkfluence.inventory.queue :as queue :refer [init-queue put tke]])
   (:import [java.io File]
            [java.util.concurrent LinkedBlockingQueue]))
 
@@ -24,13 +24,13 @@
 (def ovh-conf (atom nil))
 
 (def last-save (atom (System/currentTimeMillis)))
-(def item-not-save (atom 0))
+(def items-not-saved (atom 0))
 
 (defn ro?
   []
   (:read-only @ovh-conf))
 
-(def ^LinkedBlockingQueue ovh-queue (LinkedBlockingQueue.))
+(def ovh-queue (atom nil))
 
 (def ovh-queue-state (atom {}))
 
@@ -42,10 +42,6 @@
 (defn in-queue?
     [server-name]
     (get @ovh-queue-state (keyword server-name) false))
-
-(defn get-ovh-event-queue-size
-  []
-  (.size ovh-queue))
 
 (defn load-inventory!
   []
@@ -63,9 +59,13 @@
 (defn save-inventory
   "Save on both local file and s3"
   []
-  (when (and (= 0 (.size ovh-queue)) (not (ro?)))
-    (store/save-map (:store @ovh-conf) @ovh-inventory))
-    (u/fsync "ovh"))
+  (when (not (ro?))
+  (if (u/save? last-save items-not-saved)
+    (do
+        (store/save-map (:store @ovh-conf) @ovh-inventory)
+        (u/reset-save! last-save items-not-saved)
+        (u/fsync "ovh"))
+    (swap! items-not-saved inc))))
 
 (defn- cached?
   "check if corresponding server-name exist in cache inventory"
@@ -256,7 +256,7 @@
      [{:name "privateIp" :value "" :delete true}
       {:name "FQDN" :value "" :delete true}])
   ;;add server to queue to proceed reinstallation
-  (.put ovh-queue [server-name "bootstrap" nil])
+  (put @ovh-queue [server-name "bootstrap" nil])
   (swap! ovh-queue-state assoc (keyword server-name) "bootstrap")))
 
 (defn- server-operation!
@@ -276,25 +276,25 @@
   "Send event Update inventory when setup is ended"
   [server-name]
   (when-not (ro?)
-  (.put ovh-queue [server-name "end-setup" nil])))
+  (put @ovh-queue [server-name "end-setup" nil])))
 
 (defn reinstall
   "Send event to reinstall server"
   [server-name]
   (when-not (ro?)
-  (.put ovh-queue [server-name "reinstall" nil])))
+  (put @ovh-queue [server-name "reinstall" nil])))
 
 (defn reboot
   "Send reboot event"
   [server-name]
   (when-not (ro?)
-  (.put ovh-queue [server-name "reboot" nil])))
+  (put @ovh-queue [server-name "reboot" nil])))
 
 (defn update-reverse
   "Send update reverse event"
   [server-name reverse]
   (when-not (ro?)
-  (.put ovh-queue [server-name "reverse" reverse])))
+  (put @ovh-queue [server-name "reverse" reverse])))
 
 (defn custom-reinstall
   "custom install function"
@@ -320,12 +320,12 @@
               (doseq [[k v] @ovh-inventory]
                 (when-not (k smap)
                   (log/info "Deleting server" (name k) "from ovh inventory")
-                  (.put ovh-queue [(name k) "delete" nil]))))
+                  (put @ovh-queue [(name k) "delete" nil]))))
             ;;detection of new server
             (doseq [server-name slist]
               (when-not (or (cached? server-name) (= (in-queue? server-name) "bootstrap"))
                 (log/info "Adding server" server-name "to ovh queue")
-                (.put ovh-queue [server-name "bootstrap" nil])
+                (put @ovh-queue [server-name "bootstrap" nil])
                 (swap! ovh-queue-state assoc (keyword server-name) "bootstrap")))))))))
 
 ;;loop to setup
@@ -335,7 +335,7 @@
   (when-not (:read-only @ovh-conf)
   (u/start-thread!
       (fn [] ;;consume queue
-        (when-let [ev (.take ovh-queue)]
+        (when-let [ev (tke @ovh-queue)]
           ;; extract queue and pids from :radarly and dissoc :radarly data
           (server-operation! ev)))
       "ovh operation consumer")))
@@ -358,10 +358,17 @@
   []
   (into [] (map (fn [[k v]] k) @ovh-inventory)))
 
+(defn start-saver!
+[]
+(chime-at (periodic-seq (t/now) (t/seconds 5))
+                (fn []
+                    (when (u/save? last-save items-not-saved)
+                    (save-inventory)))))
+
 (defn start!
   []
   (if-not (or (nil? @ovh-conf) (ro?))
-    [{:stop (start-ovh-loop!)} (start-op-consumer!)]
+    [{:stop (start-ovh-loop!)} (start-op-consumer!) (start-saver!)]
     []))
 
 ;;init
@@ -370,4 +377,5 @@
   [conf]
   (reset! ovh-conf conf)
   (log/info "[OVH]" (:store @ovh-conf))
+  (init-queue ovh-queue (:server-queue conf))
   (load-inventory!))

@@ -15,9 +15,8 @@
             [clj-time.periodic :refer [periodic-seq]]
             [clojure.spec.alpha :as spec]
             [clj-yaml.core :as yaml]
-            [com.linkfluence.inventory.queue :as queue :refer [put tke]])
-  (:import [java.io File]
-           [java.util.concurrent LinkedBlockingQueue]))
+            [com.linkfluence.inventory.queue :as queue :refer [init-queue put tke]])
+  (:import [java.io File]))
 
 ; @author Jean-Baptiste Besselat
 ; @Copyright Linkfluence SAS 2018
@@ -53,11 +52,11 @@
   {:monitoredInstall @monitored-install
    :installCount (count @monitored-install)})
 
-(def ^LinkedBlockingQueue lsw-queue (LinkedBlockingQueue.))
+(def last-save (atom (System/currentTimeMillis)))
+(def items-not-saved (atom 0))
 
-(defn get-lsw-event-queue-size
-  []
-  (.size lsw-queue))
+
+(def lsw-queue (atom nil))
 
 (defn load-inventory!
   []
@@ -77,16 +76,19 @@
   "Save on both local file and s3"
   []
   (when-not (:read-only @lsw-conf)
-  (when (= 0 (.size lsw-queue))
     (store/save-map (assoc (:store @lsw-conf) :key (str (:key (:store @lsw-conf)) "-pscheme")) @lsw-pscheme)
-    (u/fsync "lsw"))))
+    (u/fsync "lsw")))
 
 (defn save-inventory
   "Save on both local file and s3"
   []
-  (when (and (= 0 (.size lsw-queue)) (not (:read-only @lsw-conf)) (not @test))
-    (store/save-map (assoc (:store @lsw-conf) :key (str (:key (:store @lsw-conf)) "-inventory")) @lsw-inventory)
-    (u/fsync "lsw")))
+  (when (and (not (:read-only @lsw-conf)) (not @test))
+    (if (u/save? last-save items-not-saved)
+        (do
+            (store/save-map (assoc (:store @lsw-conf) :key (str (:key (:store @lsw-conf)) "-inventory")) @lsw-inventory)
+            (u/reset-save! last-save items-not-saved)
+            (u/fsync "lsw"))
+        (swap! items-not-saved))))
 
 (defn- cached?
   "check if corresponding server-name exist in cache inventory
@@ -613,10 +615,17 @@
   (when-not (ro?)
   (.put lsw-queue [server-name "end-setup" nil])))
 
+(defn start-saver!
+[]
+(chime-at (periodic-seq (t/now) (t/seconds 5))
+              (fn []
+                  (when (u/save? last-save items-not-saved)
+                  (save-inventory)))))
+
 (defn start!
   []
   (if-not (or (nil? @lsw-conf) (nil? (:refresh-period @lsw-conf)) (:read-only @lsw-conf))
-    [{:stop (start-lsw-loop)} (start-op-consumer!)]
+    [{:stop (start-lsw-loop)} (start-op-consumer!) (start-saver!)]
     (do
       (if-not (:read-only @lsw-conf)
         (log/info "[LSW] missing parameters can't load refresh loop")

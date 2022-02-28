@@ -19,7 +19,7 @@
 (def last-save (atom (System/currentTimeMillis)))
 (def items-not-saved (atom 0))
 
-(def ^LinkedBlockingQueue aws-queue (LinkedBlockingQueue.))
+(def aws-queue (atom nil))
 
 
 (defn load-inventory!
@@ -30,9 +30,12 @@
 (defn save-inventory
     "Save on both local file and s3"
     []
-    (when (= 0 (.size aws-queue))
-      (store/save-map (get-service-store "elasticache") @aws-inventory)
-      (u/fsync "aws/elasticache")))
+    (if (u/save? last-save items-not-saved)
+      (do
+          (store/save-map (get-service-store "elasticache") @aws-inventory)
+          (u/reset-save! last-save items-not-saved)
+          (u/fsync "aws/elasticache")))
+      (swap! items-not-saved inc))
 
 (defn cached?
     "check if corresponding domain exist in cache inventory"
@@ -113,7 +116,7 @@
 []
 (u/start-thread!
     (fn [] ;;consume queue
-      (when-let [cluster (.take aws-queue)]
+      (when-let [cluster (tke @aws-queue)]
         ;; extract queue and pids from :radarly and dissoc :radarly data
         (update-aws-inventory! cluster)))
     "aws elasticache inventory consumer"))
@@ -125,14 +128,14 @@
               ;;add server
               (do
                 (log/info "Adding cluster" (cluster-id cluster)  "to aws queue")
-                (.put aws-queue cluster))
+                (put @aws-queue cluster))
                 ;;update server
                 (do
-                  (.put aws-queue (assoc cluster :update true))))
+                  (put @aws-queue (assoc cluster :update true))))
             ;;when state is terminated
             (when (cached? (cluster-id cluster))
               (log/info "Removing cluster" (cluster-id cluster))
-              (.put aws-queue (assoc ((keyword (cluster-id cluster)) @aws-inventory) :delete true)))))
+              (put @aws-queue (assoc ((keyword (cluster-id cluster)) @aws-inventory) :delete true)))))
 
 ;;refresh function (can be invoke manually)
 (defn refresh
@@ -146,7 +149,7 @@
         (doseq [[k v] @aws-inventory]
           (when-not (k cmap)
             (log/info "Removing aws elasticache cluster" k)
-            (.put aws-queue (assoc (k @aws-inventory) :delete true))))
+            (put @aws-queue (assoc (k @aws-inventory) :delete true))))
         ;;detection of new server
         (doseq [cluster clist]
           (manage-cluster cluster)))))
