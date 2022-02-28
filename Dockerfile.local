@@ -1,0 +1,13 @@
+FROM alpine:3.10.0
+
+RUN apk --no-cache add openjdk11-jdk curl
+
+RUN mkdir /opt/inventory && mkdir /opt/inventory/config && mkdir /opt/inventory/data
+
+COPY target/uberjar/inventory-0.16.11-SNAPSHOT-standalone.jar /opt/inventory/inventory.jar
+
+COPY docker-entrypoint.sh /
+
+RUN chmod +x /docker-entrypoint.sh
+
+CMD [ "/docker-entrypoint.sh" ]
