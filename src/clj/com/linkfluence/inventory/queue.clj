@@ -34,12 +34,13 @@
   IQProto
   (put [this e] (kafka/send (:producer q) (:topic q) (generate-string e)))
   (tke [this] (if (= 0 (.size (:buffer q)))
-              (do
-                (let [records (kafka/poll (:consumer q))]
+                (loop [records (kafka/poll (:consumer q))]
                         (doseq [el records]
                             (.put (:buffer q) (parse-string (:value el) true))
-                        (kafka/commit-offsets! (:consumer q))))
-                (.take (:buffer q)))
+                        (kafka/commit-offsets! (:consumer q)))
+                        (if (= 0 (.size (:buffer q)))
+                            (recur (kafka/poll (:consumer q)))
+                            (.take (:buffer q))))
                 (.take (:buffer q))))
   (size [this] -1)
   (close [this] (do
