@@ -1,7 +1,6 @@
 (ns com.linkfluence.inventory.aws.rds
-  (:require [chime :refer [chime-at]]
+  (:require [chime.core :as chime :refer [chime-at]]
             [clojure.string :as str]
-            [clj-time.core :as t]
             [clj-time.periodic :refer [periodic-seq]]
             [com.linkfluence.store :as store]
             [com.linkfluence.utils :as u]
@@ -10,7 +9,7 @@
             [amazonica.aws.rds :as rds]
             [com.linkfluence.inventory.aws.common :refer :all]
             [com.linkfluence.inventory.queue :as queue :refer [put tke]])
-  (:import [java.util.concurrent LinkedBlockingQueue]))
+  (:import [java.time Instant Duration]))
 
 (def aws-inventory (atom {}))
 
@@ -163,7 +162,7 @@
   "get rds instances/endpoints list and check inventory consistency
   add rds instance to queue if it is absent, remove deleted rds instance"
   []
-  (let [refresh-period (periodic-seq (fuzz) (t/minutes (:refresh-period (get-conf))))]
+  (let [refresh-period (chime/periodic-seq (fuzz) (Duration/ofMinutes (:refresh-period (get-conf))))]
   (log/info "[Refresh] starting refresh AWS loop")
   (chime-at refresh-period
     (fn [_]

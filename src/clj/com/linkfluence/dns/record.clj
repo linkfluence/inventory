@@ -1,8 +1,7 @@
 (ns com.linkfluence.dns.record
-    (:import [java.io File])
-    (:require [chime :refer [chime-at]]
-              [clj-time.core :as t]
-              [clj-time.periodic :refer [periodic-seq]]
+    (:import [java.io File]
+             [java.time Instant Duration])
+    (:require [chime.core :as chime :refer [chime-at]]
               [clojure.string :as str]
               [clojure.tools.logging :as log]
               [com.linkfluence.store :as store]
@@ -374,7 +373,7 @@
   (if-not (or (nil? @dns-conf) (ro?))
     ;start dequeue thread
     [(start-operation-consumer!)
-     (chime-at (periodic-seq (t/now) (t/seconds 5))
+     (chime-at (chime/periodic-seq (chime/now) (Duration/ofSeconds 5))
                     (fn []
                         (restart-dns)
                         (utils/fsync "dns")))]

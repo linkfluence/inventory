@@ -1,8 +1,7 @@
 (ns com.linkfluence.inventory.core
-  (:import [java.util.concurrent LinkedBlockingQueue])
-  (:require [chime :refer [chime-at]]
+  (:import  [java.time Instant Duration])
+  (:require [chime.core :as chime :refer [chime-at]]
             [clj-time.core :as t]
-            [clj-time.periodic :refer [periodic-seq]]
             [clojure.string :as str]
             [clojure.tools.logging :as log]
             [com.linkfluence.store :as store]
@@ -707,8 +706,8 @@
         (and (ro?)
               (not (nil? (get @conf :master)))))
     [(start-inventory-consumer!)
-     (chime-at (periodic-seq (t/now) (t/seconds 5))
-                      (fn []
+     (chime-at (chime/periodic-seq (chime/now) (Duration/ofSeconds 5))
+                      (fn [_]
                           (when (u/save? last-save items-not-saved)
                           (save-inventory))))]
     []))

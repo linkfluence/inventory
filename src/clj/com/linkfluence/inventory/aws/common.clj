@@ -2,7 +2,8 @@
   (:require [clojure.string :as str]
             [clj-time.core :as t]
             [cheshire.core :as json]
-            [com.linkfluence.utils :as u]))
+            [com.linkfluence.utils :as u])
+(:import [java.time Instant Duration]))
 
 ;;##########################################
 ;; Tag matching
@@ -114,7 +115,7 @@
 (defn fuzz
   []
   (let [fu (+ 2 (rand-int (* 30 (:refresh-period @conf))))]
-    (t/plus (t/now) (t/seconds fu))))
+    (.plusSeconds (Instant/now) fu)))
 
 (defn date-hack
   [data]

@@ -1,23 +1,22 @@
 (ns com.linkfluence.inventory.aws
   (:require [clojure.string :as str]
-            [clj-time.core :as t]
-            [chime :refer [chime-at]]
-            [clj-time.periodic :refer [periodic-seq]]
+            [chime.core :as chime :refer [chime-at]]
             [com.linkfluence.inventory.aws.common :as aws-common]
             [com.linkfluence.inventory.aws.autoscaling :as asg]
             [com.linkfluence.inventory.aws.ec2 :as ec2]
             [com.linkfluence.inventory.aws.rds :as rds]
             [com.linkfluence.utils :as u]
             [com.linkfluence.inventory.aws.elasticache :as elasticache]
-            [com.linkfluence.inventory.queue :refer [init-queue]]))
+            [com.linkfluence.inventory.queue :refer [init-queue]])
+(:import [java.time Instant Duration]))
 
 ; @author Jean-Baptiste Besselat
 ; @Copyright Linkfluence SAS 2017
 
 (defn start-saver!
   [last-save items-not-saved save-fn]
-  (chime-at (periodic-seq (t/now) (t/seconds 5))
-                  (fn []
+  (chime-at (chime/periodic-seq (chime/now) (Duration/ofSeconds 5))
+                  (fn [_]
                       (when (u/save? last-save items-not-saved)
                       (save-fn)))))
 

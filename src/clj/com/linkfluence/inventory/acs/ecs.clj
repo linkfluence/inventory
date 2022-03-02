@@ -1,7 +1,5 @@
 (ns com.linkfluence.inventory.acs.ecs
-  (:require [chime :refer [chime-at]]
-            [clj-time.core :as t]
-            [clj-time.periodic :refer [periodic-seq]]
+  (:require [chime.core :as chime :refer [chime-at]]
             [com.linkfluence.store :as store]
             [com.linkfluence.utils :as u]
             [com.linkfluence.inventory.core :as inventory]
@@ -9,7 +7,8 @@
             [cheshire.core :as json]
             [com.linkfluence.inventory.acs.common :refer :all]
             [aliyuncs.ecs.instance :as ecsi]
-            [com.linkfluence.inventory.queue :as queue :refer [init-queue put tke]]))
+            [com.linkfluence.inventory.queue :as queue :refer [init-queue put tke]])
+   (:import [java.time Instant Duration]))
 
 ;;Handler for ali cloud ECS
 (def acs-inventory (atom {}))
@@ -170,12 +169,12 @@
 
 (defn start-loop!
   []
-  (let [refresh-period (periodic-seq (t/now) (t/minutes (:refresh-period (get-conf))))]
+  (let [refresh-period (chime/periodic-seq (chime/now) (Duration/ofMinutes (:refresh-period (get-conf))))]
     (log/info "[Refresh] starting refresh acs loop")
     (let [stop-fn-refresh (chime-at refresh-period
                             refresh)
-          stop-fn-save    (chime-at (periodic-seq (t/now) (t/seconds 5))
-                            save-inventory)]
+          stop-fn-save    (chime-at (chime/periodic-seq (chime/now) (Duration/ofSeconds 5))
+                            (fn [_] (save-inventory)))]
         (fn []
             (stop-fn-refresh)
             (stop-fn-save)))))

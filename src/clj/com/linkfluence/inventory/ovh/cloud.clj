@@ -7,12 +7,11 @@
             [com.linkfluence.store :as store]
             [com.linkfluence.utils :as u]
             [ovh.cloud :as cloud]
-            [chime :refer [chime-at]]
-            [clj-time.core :as t]
-            [clj-time.periodic :refer [periodic-seq]]
+            [chime.core :as chime :refer [chime-at]]
             [com.linkfluence.inventory.queue :as queue :refer [init-queue put tke]])
   (:import [java.io File]
-           [java.util.concurrent LinkedBlockingQueue]))
+           [java.util.concurrent LinkedBlockingQueue]
+           [java.time Instant Duration]))
 
 (def ovh-conf (atom nil))
 
@@ -247,7 +246,7 @@
   add instance to queue if it is absent, remove deleted instance"
   []
   (when-not (or (:read-only @ovh-conf) (nil? (:refresh-period @ovh-conf)))
-  (let [refresh-period (periodic-seq (t/now) (t/minutes (:refresh-period @ovh-conf)))]
+  (let [refresh-period (chime/periodic-seq (chime/now) (Duration/ofMinutes (:refresh-period @ovh-conf)))]
   (log/info "[Refresh] starting OVH CLOUD refresh loop")
   (chime-at refresh-period
     refresh))))
@@ -272,8 +271,8 @@
 
 (defn start-saver!
 []
-(chime-at (periodic-seq (t/now) (t/seconds 5))
-              (fn []
+(chime-at (chime/periodic-seq (chime/now) (Duration/ofSeconds 5))
+              (fn [_]
                   (when (u/save? last-save items-not-saved)
                   (save-inventory)))))
 
@@ -290,4 +289,5 @@
  [conf]
  (reset! ovh-conf conf)
  (log/info "[OVH]" (:store @ovh-conf))
+ (init-queue ovh-queue (:cloud-queue conf))
  (load-inventory!))

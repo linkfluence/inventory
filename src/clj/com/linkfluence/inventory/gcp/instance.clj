@@ -1,8 +1,6 @@
 (ns com.linkfluence.inventory.gcp.instance
   (:require [clojure.string :as str]
-            [chime :refer [chime-at]]
-            [clj-time.core :as t]
-            [clj-time.periodic :refer [periodic-seq]]
+            [chime.core :as chime :refer [chime-at]]
             [cheshire.core :as json]
             [clojure.tools.logging :as log]
             [clj-gcloud.compute.instance :as gci]
@@ -11,7 +9,7 @@
             [com.linkfluence.store :as store]
             [com.linkfluence.utils :as u]
             [com.linkfluence.inventory.queue :as queue :refer [put tke]])
-  (:import [java.util.concurrent LinkedBlockingQueue]))
+  (:import [java.time Instant Duration]))
 
 ; @author Jean-Baptiste Besselat
 ; @Copyright Linkfluence SAS 2020 / Adot 2020 / Jean-baptiste Besselat 2020
@@ -162,7 +160,7 @@
         "gcp instance inventory consumer"))
 
 (defn start-loop! []
-  (let [refresh-period (periodic-seq (t/now) (t/minutes (:refresh-period (get-conf))))]
+  (let [refresh-period (chime/periodic-seq (chime/now) (Duration/ofMinutes (:refresh-period (get-conf))))]
     (log/info "[Refresh] starting refresh gcpi loop")
     (chime-at refresh-period
         refresh)))

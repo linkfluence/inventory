@@ -1,13 +1,12 @@
 (ns com.linkfluence.inventory.internal
   (:require [clojure.string :as str]
-            [chime :refer [chime-at]]
-            [clj-time.core :as t]
-            [clj-time.periodic :refer [periodic-seq]]
+            [chime.core :as chime :refer [chime-at]]
             [clojure.tools.logging :as log]
             [com.linkfluence.inventory.core :as inventory]
             [com.linkfluence.store :as store]
             [com.linkfluence.utils :as u]
-            [com.linkfluence.inventory.queue :as queue :refer [init-queue put tke]]))
+            [com.linkfluence.inventory.queue :as queue :refer [init-queue put tke]])
+ (:import [java.time Instant Duration]))
 
 ;@author Jean-Baptiste Besselat
 ;@Copyright Linkfluence SAS 2018
@@ -62,7 +61,7 @@
 (defn add-inventory-event
   [ev]
   (when-not (ro?)
-  (.put internal-queue ev)))
+  (put @internal-queue ev)))
 
 (defn load-inventory!
   []
@@ -207,7 +206,7 @@
   []
   (u/start-thread!
       (fn [] ;;consume queue
-        (when-let [ev (.take internal-queue)]
+        (when-let [ev (tke @internal-queue)]
           ;; extract queue and pids from :radarly and dissoc :radarly data
           (execute-operation! ev)))
       "internal consumer"))
@@ -216,8 +215,8 @@
   []
   (if-not (nil? @internal-conf)
     [(start-op-consumer!)
-     (chime-at (periodic-seq (t/now) (t/seconds 5))
-                     (fn []
+     (chime-at (chime/periodic-seq (chime/now) (Duration/ofSeconds 5))
+                     (fn [_]
                          (when (u/save? last-save items-not-saved)
                          (save-inventory))))]
     []))
@@ -225,4 +224,5 @@
 (defn configure!
   [conf]
   (reset! internal-conf conf)
+  (init-queue internal-queue (:queue internal-conf))
   (load-inventory!))

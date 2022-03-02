@@ -1,6 +1,7 @@
 (ns com.linkfluence.inventory.queue
   (:require [gregor.core :as kafka]
             [clojure.edn :as edn]
+            [clojure.tools.logging :as log]
             [cheshire.core :refer :all])
   (:import [java.util.concurrent LinkedBlockingQueue]))
 
@@ -17,21 +18,22 @@
   (size [q])
   (close [q]))
 
-(deftype IQLinkedBlockingQueue [^LinkedBlockingQueue q]
+(deftype IQLinkedBlockingQueue [q]
   IQProto
-  (put [q e] (.put q e))
-  (tke [q] (.take q))
-  (size [q] (.size q))
-  (close [q] nil))
+  (put [this e] (.put ^LinkedBlockingQueue (:lbq q) e))
+  (tke [this] (.take ^LinkedBlockingQueue (:lbq q)))
+  (size [this] (.size ^LinkedBlockingQueue (:lbq q)))
+  (close [this] nil))
 
 (defn iq-linked-blocking-queue
   []
-  (->IQLinkedBlockingQueue (LinkedBlockingQueue.)))
+  (log/info "create an iq-linked-blocking-queue")
+  (->IQLinkedBlockingQueue {:lbq (LinkedBlockingQueue.)}))
 
 (deftype IQKafkaQueue [q]
   IQProto
-  (put [q e] (kafka/send (:producer q) (:topic q) (generate-string e)))
-  (tke [q] (if (= 0 (.size (:buffer q)))
+  (put [this e] (kafka/send (:producer q) (:topic q) (generate-string e)))
+  (tke [this] (if (= 0 (.size (:buffer q)))
               (do
                 (let [records (kafka/poll (:consumer q))]
                         (doseq [el records]
@@ -39,13 +41,14 @@
                         (kafka/commit-offsets! (:consumer q))))
                 (.take (:buffer q)))
                 (.take (:buffer q))))
-  (size [q] -1)
-  (close [q] (do
+  (size [this] -1)
+  (close [this] (do
                (kafka/close (:consumer q)
                (kafka/close (:producer q))))))
 
 (defn iq-kafka-queue
   [{:keys [bootstrap-servers topic group-id]}]
+  (log/info "create an iq-kafka-queue")
   (->IQKafkaQueue {:consumer (kafka/consumer bootstrap-servers group-id [topic]
                                 {"auto.offset.reset" "earliest"
                                  "enable.auto.commit" "false"})

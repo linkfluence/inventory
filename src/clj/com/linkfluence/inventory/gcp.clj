@@ -14,7 +14,7 @@
 (defn start-saver!
   [last-save items-not-saved save-fn]
   (chime-at (periodic-seq (t/now) (t/seconds 5))
-                  (fn []
+                  (fn [_]
                       (when (u/save? last-save items-not-saved)
                       (save-fn)))))
 

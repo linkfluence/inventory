@@ -10,13 +10,12 @@
             [leaseweb.v2.core :as lsw]
             [leaseweb.v2.server :as server]
             [leaseweb.v2.pnet :as pnet]
-            [chime :refer [chime-at]]
-            [clj-time.core :as t]
-            [clj-time.periodic :refer [periodic-seq]]
+            [chime.core :as chime :refer [chime-at]]
             [clojure.spec.alpha :as spec]
             [clj-yaml.core :as yaml]
             [com.linkfluence.inventory.queue :as queue :refer [init-queue put tke]])
-  (:import [java.io File]))
+  (:import [java.io File]
+           [java.time Instant Duration]))
 
 ; @author Jean-Baptiste Besselat
 ; @Copyright Linkfluence SAS 2018
@@ -525,7 +524,7 @@
   add server to queue if it is absent, remove deleted server"
   []
   (when-not (or (ro?) (nil? (:refresh-period @lsw-conf)))
-  (let [refresh-period (periodic-seq (t/now) (t/minutes (:refresh-period @lsw-conf)))]
+  (let [refresh-period (chime/periodic-seq (chime/now) (Duration/ofMinutes (:refresh-period @lsw-conf)))]
   (log/info "[LSW][Refresh] starting LSW refresh loop")
   (chime-at refresh-period
     (fn [_]
@@ -617,8 +616,8 @@
 
 (defn start-saver!
 []
-(chime-at (periodic-seq (t/now) (t/seconds 5))
-              (fn []
+(chime-at (chime/periodic-seq (chime/now) (Duration/ofSeconds 5))
+              (fn [_]
                   (when (u/save? last-save items-not-saved)
                   (save-inventory)))))
 

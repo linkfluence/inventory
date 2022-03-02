@@ -8,12 +8,11 @@
             [ovh.server :as server]
             [ovh.vrack :as vrack]
             [ovh.ip :as ip]
-            [chime :refer [chime-at]]
-            [clj-time.core :as t]
-            [clj-time.periodic :refer [periodic-seq]]
+            [chime.core :as chime :refer [chime-at]]
             [com.linkfluence.inventory.queue :as queue :refer [init-queue put tke]])
   (:import [java.io File]
-           [java.util.concurrent LinkedBlockingQueue]))
+           [java.util.concurrent LinkedBlockingQueue]
+           [java.time Instant Duration]))
 
 ; @author Jean-Baptiste Besselat
 ; @Copyright Linkfluence SAS 2017
@@ -310,7 +309,7 @@
   add server to queue if it is absent, remove deleted server"
   []
   (when-not (or (:read-only @ovh-conf) (nil? (:refresh-period @ovh-conf)))
-  (let [refresh-period (periodic-seq (t/now) (t/minutes (:refresh-period @ovh-conf)))]
+  (let [refresh-period (chime/periodic-seq (chime/now) (Duration/ofMinutes (:refresh-period @ovh-conf)))]
   (log/info "[Refresh] starting OVH refresh loop")
   (chime-at refresh-period
     (fn [_]
@@ -360,8 +359,8 @@
 
 (defn start-saver!
 []
-(chime-at (periodic-seq (t/now) (t/seconds 5))
-                (fn []
+(chime-at (chime/periodic-seq (chime/now) (Duration/ofSeconds 5))
+                (fn [_]
                     (when (u/save? last-save items-not-saved)
                     (save-inventory)))))
 

@@ -1,15 +1,14 @@
 (ns com.linkfluence.inventory.aws.ec2
-  (:require [chime :refer [chime-at]]
+  (:require [chime.core :as chime :refer [chime-at]]
             [clojure.string :as str]
-            [clj-time.core :as t]
-            [clj-time.periodic :refer [periodic-seq]]
             [com.linkfluence.store :as store]
             [com.linkfluence.utils :as u]
             [com.linkfluence.inventory.core :as inventory]
             [clojure.tools.logging :as log]
             [amazonica.aws.ec2 :as ec2]
             [com.linkfluence.inventory.aws.common :refer :all]
-            [com.linkfluence.inventory.queue :as queue :refer [put tke]]))
+            [com.linkfluence.inventory.queue :as queue :refer [put tke]])
+    (:import [java.time Instant Duration]))
 
 
 (def aws-inventory (atom {}))
@@ -258,7 +257,7 @@
   "get instances list and check inventory consistency
   add instance to queue if it is absent, remove deleted instance"
   []
-  (let [refresh-period (periodic-seq (fuzz) (t/minutes (:refresh-period (get-conf))))]
+  (let [refresh-period (chime/periodic-seq (fuzz) (Duration/ofMinutes (:refresh-period (get-conf))))]
   (log/info "[Refresh] starting refresh AWS loop")
   (chime-at refresh-period
     refresh)))

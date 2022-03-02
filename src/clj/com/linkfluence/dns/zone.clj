@@ -1,9 +1,7 @@
 (ns com.linkfluence.dns.zone
     (:import [java.io File]
-             [java.util.concurrent LinkedBlockingQueue])
-    (:require [chime :refer [chime-at]]
-              [clj-time.core :as t]
-              [clj-time.periodic :refer [periodic-seq]]
+             [java.time Instant Duration])
+    (:require [chime.core :as chime :refer [chime-at]]
               [clojure.string :as str]
               [clojure.tools.logging :as log]
               [com.linkfluence.store :as store]
@@ -288,7 +286,7 @@
         (restart-dns op-queue)
         (if-not (ro?)
             [(start-operation-consumer!)
-             (chime-at (periodic-seq (t/now) (t/seconds 5))
+             (chime-at (chime/periodic-seq (chime/now) (Duration/ofSeconds 5))
                            (fn []
                                (when (utils/save? last-save items-not-saved)
                                      (restart-dns op-queue (utils/save? last-save items-not-saved))
