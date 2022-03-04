@@ -2,12 +2,12 @@
   (:require [com.linkfluence.utils :as utils]
             [com.linkfluence.store.s3 :as s3]
             [com.linkfluence.store.oss :as oss]
+            [com.linkfluence.store.gcs :as gcs]
             [com.linkfluence.store.file :as fi]
             [com.linkfluence.store.consul :as consul]
             [clojure.string :as str]
             [clojure.tools.logging :as log]
-            [clj-yaml.core :as yaml]
-            )
+            [clj-yaml.core :as yaml])
   (:import [java.util.concurrent LinkedBlockingQueue]))
 
 ; @author Jean-Baptiste Besselat
@@ -65,6 +65,13 @@
         path key]
       (oss/put buck path data)))
 
+(defmethod save-to :gcs [_ params key data]
+  (let [buck (if-not (nil? (:bucket params))
+                (:bucket params)
+                (gcs/default-bucket))
+        path key]
+      (gcs/put buck path data)))
+
 (defmethod save-to :consul [_ params key data]
     (let [buck (if-not (nil? (:bucket params))
                   (:bucket params)
@@ -103,6 +110,13 @@
                 (oss/default-bucket))
         path (str key ".yml")]
       (oss/put buck path (map->yaml data))))
+
+(defmethod save-map-to :gcs [_ params key data]
+  (let [buck (if-not (nil? (:bucket params))
+                (:bucket params)
+                (gcs/default-bucket))
+        path (str key ".yml")]
+      (gcs/put buck path (map->yaml data))))
 
 (defmethod save-map-to :consul [_ params key data]
     (let [buck (if-not (nil? (:bucket params))
@@ -145,6 +159,14 @@
                 (oss/default-bucket))
         path (:key store)]
       (oss/get buck path true)))
+
+(defmethod load-from :gcs [_ store]
+  (let [gcs (:gcs store)
+        buck (if-not (nil? (:bucket gcs))
+                (:bucket gcs)
+                (gcs/default-bucket))
+        path (:key store)]
+      (gcs/get buck path true)))
 
  (defmethod load-from :consul [_ store]
    (let [consul (:consul store)
@@ -191,6 +213,14 @@
         path (str (:key store) ".yml")]
       (yaml->map (oss/get buck path (:fail-fast oss)))))
 
+(defmethod load-map-from :gcs [_ store]
+  (let [gcs (:gcs store)
+        buck (if-not (nil? (:bucket gcs))
+                (:bucket gcs)
+                (gcs/default-bucket))
+        path (str (:key store) ".yml")]
+      (yaml->map (gcs/get buck path (:fail-fast gcs)))))
+
 (defmethod load-map-from :consul [_ store]
     (let [consul (:consul store)
          buck (if-not (nil? (:bucket consul))
@@ -218,6 +248,8 @@
     (s3/configure! (:s3 store-conf)))
   (when (:oss store-conf)
     (oss/configure! (:oss store-conf)))
+  (when (:gcs store-conf)
+    (gcs/configure! (:gcs store-conf)))
   (when (:file store-conf)
     (fi/configure! (:file store-conf)))
   (when (:consul store-conf)

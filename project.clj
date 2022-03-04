@@ -1,4 +1,4 @@
-(defproject linkfluence/inventory "0.16.11-SNAPSHOT"
+(defproject linkfluence/inventory "0.16.13-SNAPSHOT"
   :description "Rtgi inventory App"
   :url "http://www.linkfluence.com"
   :license {:name "Eclipse Public License"
@@ -18,7 +18,7 @@
                  [ring-middleware-format "0.7.4"]
                  [bk/ring-gzip "0.3.0"]
                  ;;for proxy
-                 [clj-http "3.7.0"]
+                 [clj-http "3.12.3"]
                  [digest "1.4.4"]
                  ;;json yaml mgt
                  [cheshire "5.9.0"]
@@ -33,7 +33,7 @@
                  [luhhujbb/clj-aliyun "0.2.4"]
                  [luhhujbb/clj-ovh "0.1.13"]
                  [luhhujbb/leaseweb "0.3.7"]
-                 [luhhujbb/clj-gcloud-compute "0.118.0-alpha-3"]
+                 [luhhujbb/clj-gcloud "1.0.0"]
                  ;;scheduling
                  [jarohen/chime "0.3.3"]
                  ;;async op

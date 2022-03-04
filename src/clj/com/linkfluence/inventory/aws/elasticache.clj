@@ -73,10 +73,13 @@
                                :tags []
                                :delete true}))
         (doseq [node nodes]
-      (inventory/add-inventory-event {:type "resource"
+          (let [tags (get-tags-from-entity-map node)]
+            (inventory/add-inventory-event {:type "resource"
                                :provider "AWS"
                                :id (node-id cluster node)
-                               :tags (filter (fn [x] (not (nil? x))) [{:name "provider" :value "AWS"}
+                               :tags (filter (fn [x] (not (nil? x)))
+                                        (concat
+                                                  [{:name "provider" :value "AWS"}
                                                    {:name "AZ" :value (:customer-availability-zone node )}
                                                    {:name "REGION" :value (aws-region (:customer-availability-zone node ))}
                                                    {:name "SHORT_AZ" :value (short-az (:customer-availability-zone node ))}
@@ -86,7 +89,8 @@
                                                    {:name "APP_VERSION" :value (get-in cluster [:engine-version])}
                                                    {:name "aws_service" :value "elasticache"}
                                                    {:name "instance_type" :value (get-in cluster [:cache-node-type])}
-                                                   {:name "cluster_id" :value (get-in cluster [:cache-cluster-id])}])})))))
+                                                   {:name "cluster_id" :value (get-in cluster [:cache-cluster-id])}]
+                                                   (tags-binder tags)))}))))))
 
 (defn- update-aws-inventory!
  [cluster]
@@ -100,12 +104,45 @@
        (send-tags-request cluster)
        (save-inventory)))
 
+(defn- get-node-arn
+  [account region node]
+  (let [addr (get-in node [:endpoint :address])
+        id (first (str/split addr #"\."))]
+        (str "arn:aws:elasticache:" region ":" account ":cluster:" id)))
+
+(defn- get-node-with-tags
+  [account region node]
+  (let [arn (get-node-arn account region node)
+        tags (try (:tag-list (elasticache/list-tags-for-resource
+                      (get-service-endpoint region "elasticache")
+                      :resource-name arn))
+                      (catch Exception e
+                        (log/error "Failed to get tags from nodes" e)
+                        []))]
+        (assoc node :tags tags :arn arn)))
+
+(defn- add-tags-to-cluster-nodes
+  [account region cluster]
+  (assoc
+    cluster
+    :cache-nodes (doall
+                    (map
+                      (partial get-node-with-tags account region)
+                      (:cache-nodes cluster)))))
+
 (defn- get-clusters
     [region]
     (try
-      (:cache-clusters (elasticache/describe-cache-clusters
+      (let [clusters (:cache-clusters (elasticache/describe-cache-clusters
                                     (get-service-endpoint region "elasticache")
-                                    :show-cache-node-info true))
+                                    :show-cache-node-info true))]
+            (if-let [account (:account-id (get-conf))]
+              (doall
+                (map
+                  (partial add-tags-to-cluster-nodes account (name region))
+                  clusters))
+              clusters))
+
       (catch Exception e
         (log/error "Failed to retrieve aws cache-clusters for region " (get-in (get-conf) [:regions region :endpoint]))
           (throw (Exception. "Failed to retrieve aws cache-clusters")))))

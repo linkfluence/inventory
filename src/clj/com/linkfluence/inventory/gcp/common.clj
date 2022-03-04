@@ -3,7 +3,7 @@
             [clj-time.core :as t]
             [cheshire.core :as json]
             [clojure.java.io :as io]
-            [clj-gcloud.compute.core :as compute]
+            [clj-gcloud.compute.instance :as instance]
             [com.linkfluence.utils :as u]))
 
 ; @author Jean-Baptiste Besselat
@@ -18,14 +18,14 @@
   (doseq [project (:projects config)]
     (swap! client-store
         assoc
-          (keyword (:id project))
-          (compute/init {:json-path (:creds-json-path project)
+          (keyword (str (:id project) "-compute-instance"))
+          (instance/init {:json-path (:creds-json-path project)
                          :application-name "inventory"})))
   (reset! conf config))
 
 (defn client
-  [project]
-  (get @client-store (keyword project)))
+  [project service]
+  (get @client-store (keyword (str project "-" service))))
 
 (defn get-service-store
   [service]
