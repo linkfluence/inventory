@@ -92,17 +92,32 @@
                                                    {:name "privateIp" :value (:private-ip-address instance)}]
                                                     (tags-binder tags))))}))))
 
+(defn instance-change?
+    [instance kid]
+    (let [previous-instance-state (get @aws-inventory kid)]
+          (or
+              (not= (:public-ip-address instance) (:public-ip-address previous-instance-state))
+              (not= (:instance-type instance) (:instance-type previous-instance-state))
+              (not= (get-tags-from-entity-map instance) (get-tags-from-entity-map previous-instance-state)))))
+
 (defn update-aws-inventory!
   [instance]
-  (let [kid (keyword (:instance-id instance))]
+  (let [kid (keyword (:instance-id instance))
+        need-update (atom true)]
         (if (:delete instance)
-          (swap! aws-inventory dissoc kid)
+          (do
+            (swap! aws-inventory dissoc kid)
+            (send-tags-request instance))
           (if (:update instance)
-            (do
+            (when (instance-change? instance kid)
+              (swap! aws-inventory assoc-in [kid :public-ip-address] (:public-ip-address instance))
               (swap! aws-inventory assoc-in [kid :tags] (:tags instance))
-              (swap! aws-inventory assoc-in [kid :instance-type] (:instance-type instance)))
-            (swap! aws-inventory assoc kid (dissoc (date-hack instance) :update))))
-        (send-tags-request instance)
+              (swap! aws-inventory assoc-in [kid :instance-type] (:instance-type instance))
+              (send-tags-request instance))
+            (do
+              (swap! aws-inventory assoc kid (dissoc (date-hack instance) :update))
+              (send-tags-request instance))))
+
         (save-inventory)))
 
 
