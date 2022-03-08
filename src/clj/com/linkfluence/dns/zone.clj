@@ -1,14 +1,16 @@
 (ns com.linkfluence.dns.zone
     (:import [java.io File]
-             [java.util.concurrent LinkedBlockingQueue])
-    (:require [clojure.string :as str]
+             [java.time Instant Duration])
+    (:require [chime.core :as chime :refer [chime-at]]
+              [clojure.string :as str]
               [clojure.tools.logging :as log]
               [com.linkfluence.store :as store]
               [com.linkfluence.utils :as utils]
               [clojure.java.shell :as shell]
               [digest]
               [clostache.parser :as template]
-              [clojure.spec.alpha :as spec])
+              [clojure.spec.alpha :as spec]
+              [com.linkfluence.inventory.queue :as queue :refer [put tke]])
     (:use [com.linkfluence.dns.common]
           [clojure.java.io]
           [clojure.walk]))
@@ -26,8 +28,9 @@
 
 (def zone-cache (atom nil))
 
-;queue for proceeding record operation
-(def ^LinkedBlockingQueue op-queue (LinkedBlockingQueue.))
+(def last-save (atom (System/currentTimeMillis)))
+(def items-not-saved (atom 0))
+(def op-queue (atom nil))
 
 (defn zone->db
   [zone-name]
@@ -236,7 +239,12 @@
                           (generate-zones))
            "sync" (sync)
             (log/error "op is not valid"))
-            (restart-dns op-queue)))
+            (if (utils/save? last-save items-not-saved)
+                (do
+                  (restart-dns op-queue (utils/save? last-save items-not-saved))
+                  (utils/reset-save! last-save items-not-saved)
+                  (utils/fsync "dns"))
+                  (swap! items-not-saved inc))))
 
 (defn check-zone
     [zone]
@@ -249,14 +257,14 @@
     (cond
         ;;sync
         (= "sync" op)
-        (.put op-queue [zone-name op zone])
+        (put @op-queue [zone-name op zone])
         ;;zone
         (= "create" op)
         (if (spec/valid? ::zone zone)
-            (.put op-queue [zone-name op zone])
+            (put @op-queue [zone-name op zone])
             (log/error "Checks failed for operation on zone: , spec result :" (spec/conform ::zone zone)))
         (= "delete" op)
-        (.put op-queue [zone-name op zone])
+        (put @op-queue [zone-name op zone])
         :else
         nil)))
 
@@ -265,7 +273,7 @@
   []
   (utils/start-thread!
       (fn [] ;;consume queue
-        (when-let [op (.take op-queue)]
+        (when-let [op (tke @op-queue)]
           ;; extract queue and pids from :radarly and dissoc :radarly data
           (execute-operation! op)))
       "DNS Zone updater consumer"))
@@ -277,6 +285,12 @@
     (do (sync)
         (restart-dns op-queue)
         (if-not (ro?)
-            [(start-operation-consumer!)]
+            [(start-operation-consumer!)
+             (chime-at (chime/periodic-seq (chime/now) (Duration/ofSeconds 5))
+                           (fn []
+                               (when (utils/save? last-save items-not-saved)
+                                     (restart-dns op-queue (utils/save? last-save items-not-saved))
+                                     (utils/reset-save! last-save items-not-saved)
+                                     (utils/fsync "dns"))))]
             []))
     []))

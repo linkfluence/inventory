@@ -23,15 +23,21 @@
                  ;;json yaml mgt
                  [cheshire "5.9.0"]
                  [clj-commons/clj-yaml "0.7.0"]
+                 ;;jackson
+                 [com.fasterxml.jackson.core/jackson-core "2.11.0"]
+                 [com.fasterxml.jackson.core/jackson-databind "2.11.0"]
+                 [com.fasterxml.jackson.core/jackson-databind "2.11.0"]
                  ;;aws
-                 [amazonica "0.3.152"]
+                 [amazonica "0.3.156"]
                  ;;internal cloud lib
                  [luhhujbb/clj-aliyun "0.2.4"]
                  [luhhujbb/clj-ovh "0.1.13"]
                  [luhhujbb/leaseweb "0.3.7"]
                  [luhhujbb/clj-gcloud "1.0.0"]
                  ;;scheduling
-                 [jarohen/chime "0.2.2"]
+                 [jarohen/chime "0.3.3"]
+                 ;;async op
+                 [org.clojure/core.async "1.5.648"]
                  ;;Storage
                  [luhhujbb/oss-117 "0.1.3"] ;;ali cloud
                  [luhhujbb/envoy "0.3.1"] ;;consul
@@ -43,7 +49,9 @@
                  ;;journal storer, esfs object saver
                  [cc.qbits/spandex "0.7.4"]
                  ;;conf template (dns conf generation)
-                 [luhhujbb/clostache "1.5.0"]]
+                 [luhhujbb/clostache "1.5.0"]
+                 ;;distributed queing
+                 [luhhujbb/gregor "1.2.0"]]
   :main ^:skip-aot com.linkfluence.starter
   :target-path "target/%s"
   :source-paths ["src/clj"]

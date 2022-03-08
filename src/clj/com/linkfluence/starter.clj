@@ -40,7 +40,8 @@
 (defn configure!
   [conf]
   ;;by default utils, storage, main inventory ,api and caller are configured
-  (utils/configure! {:fsync (:fsync conf)})
+  (utils/configure! {:fsync (:fsync conf)
+                     :max-not-saved-items (or (:max-not-saved-items conf) 50)})
   (when (nil? (:store conf))
     (log/info "store is empty"))
   (store/configure! (set-ro :store conf))

@@ -1,6 +1,5 @@
 (ns com.linkfluence.dns.common
-    (:import [java.io File]
-             [java.util.concurrent LinkedBlockingQueue])
+    (:import [java.io File])
     (:require [clojure.string :as str]
               [clojure.tools.logging :as log]
               [com.linkfluence.store :as store]
@@ -58,14 +57,14 @@
 
 (defn restart-dns
   "restart dns service"
-  [& [^LinkedBlockingQueue op-queue]]
+  [& [op-queue need-restart?]]
   ;;restart only when it is enable in conf and when queue is empty
   (when (and (:restart @dns-conf)
           (or
-            (nil? op-queue)
+            (nil? @op-queue)
             (and
-              (some? op-queue)
-              (= 0 (.size op-queue)))))
+              (some? @op-queue)
+              need-restart?)))
     (log/info "[DNS] restarting bind9 to update conf")
     (if (:sudo @dns-conf)
         (shell/sh "sudo" "service" "bind9" "restart")

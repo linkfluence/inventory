@@ -18,6 +18,11 @@
                :s3 {:bucket "my_bucket"}
                :key "aws"
        }
+       ;; optional queing system (see main inventory section to get sample)
+       ;; :ec2-queue
+       ;; :asg-queue
+       ;; :rds-queue
+       ;; :elasticache-queue
        :refresh-period 5}
  :acs {:regions {
           :cn-shanghai {
@@ -175,6 +180,17 @@
 ;;main inventory conf
  :inventory {:store {:file {:bucket "/etc/inventory"}
                      :s3 {:bucket "my_bucket"}}
+             ;;internal queing system
+             :queue {
+                 :type :kafka
+                 :topic "inventory"
+                 :bootstrap-servers "localhost:9092"
+                 :group-id "inventory.main"
+             }
+             ;;or
+             ;;queue {
+             ;; :type :linked-blocking-queue
+             ;;}
              :master "my_master_inventory_host" ;; only usefull when main inventory is ro, and some handler are not
              ;;views are pre evaluated aggregations, they are stored and rebuild each times inventory is saved
             :views [{:tag "privateIp" :tags ["REGION" "Name"] :name "my-company-tag-view"}
@@ -183,7 +199,7 @@
                      :s3 {:bucket "my_bucket"}
                  :key "apps"}
        :lifecycle-tag "FQDN"}
- ;; proviion resource typically baremetal with raw OS
+ ;; provision resource typically baremetal with raw OS
  :provision {:default {:command {:method :ansible-playbook
                        :playbook "/data/playbook/ovh-init.yml"}}
              :ovh-cloud {:command {:method :ansible-playbook

@@ -119,6 +119,16 @@
           [k v]))
         tags)))
 
+(defn save?
+    [last-save items-not-saved]
+    (and
+        (> (- (System/currentTimeMillis) @last-save) 5000)
+        (> @items-not-saved (or (:max-not-saved-items @conf) 50))))
+
+(defn reset-save!
+    [last-save items-not-saved]
+    (reset! last-save (System/currentTimeMillis))
+    (reset! items-not-saved 0))
 
 (defn configure!
   [utils-conf]

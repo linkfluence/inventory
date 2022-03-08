@@ -1,20 +1,22 @@
 (ns com.linkfluence.inventory.aws.ec2
-  (:require [chime :refer [chime-at]]
+  (:require [chime.core :as chime :refer [chime-at]]
             [clojure.string :as str]
-            [clj-time.core :as t]
-            [clj-time.periodic :refer [periodic-seq]]
             [com.linkfluence.store :as store]
             [com.linkfluence.utils :as u]
             [com.linkfluence.inventory.core :as inventory]
             [clojure.tools.logging :as log]
             [amazonica.aws.ec2 :as ec2]
-            [com.linkfluence.inventory.aws.common :refer :all])
-  (:import [java.util.concurrent LinkedBlockingQueue]))
+            [com.linkfluence.inventory.aws.common :refer :all]
+            [com.linkfluence.inventory.queue :as queue :refer [put tke]])
+    (:import [java.time Instant Duration]))
 
 
 (def aws-inventory (atom {}))
 
-(def ^LinkedBlockingQueue aws-queue (LinkedBlockingQueue.))
+(def last-save (atom (System/currentTimeMillis)))
+(def items-not-saved (atom 0))
+
+(def aws-queue (atom nil))
 
 (defn load-inventory!
   []
@@ -24,9 +26,12 @@
 (defn save-inventory
   "Save on both local file and s3"
   []
-  (when (= 0 (.size aws-queue))
-    (store/save-map (get-service-store "ec2") @aws-inventory)
-    (u/fsync "aws/ec2")))
+  (if (u/save? last-save items-not-saved)
+    (do
+        (store/save-map (get-service-store "ec2") @aws-inventory)
+        (u/reset-save! last-save items-not-saved)
+        (u/fsync "aws/ec2"))
+    (swap! items-not-saved inc)))
 
 (defn cached?
   "check if corresponding domain exist in cache inventory"
@@ -87,13 +92,23 @@
                                                    {:name "privateIp" :value (:private-ip-address instance)}]
                                                     (tags-binder tags))))}))))
 
+(defn instance-change?
+    [instance kid]
+    (let [previous-instance-state (get @aws-inventory kid)]
+          (or
+              (not= (:public-ip-address instance) (:public-ip-address previous-instance-state))
+              (not= (:instance-type instance) (:instance-type previous-instance-state))
+              (not= (get-tags-from-entity-map instance) (get-tags-from-entity-map previous-instance-state)))))
+
 (defn update-aws-inventory!
   [instance]
-  (let [kid (keyword (:instance-id instance))]
+  (let [kid (keyword (:instance-id instance))
+        need-update (atom true)]
         (if (:delete instance)
-          (swap! aws-inventory dissoc kid)
+            (swap! aws-inventory dissoc kid)
           (if (:update instance)
             (do
+              (swap! aws-inventory assoc-in [kid :public-ip-address] (:public-ip-address instance))
               (swap! aws-inventory assoc-in [kid :tags] (:tags instance))
               (swap! aws-inventory assoc-in [kid :instance-type] (:instance-type instance)))
             (swap! aws-inventory assoc kid (dissoc (date-hack instance) :update))))
@@ -200,7 +215,7 @@
   []
   (u/start-thread!
       (fn [] ;;consume queue
-        (when-let [instance (.take aws-queue)]
+        (when-let [instance (tke @aws-queue)]
           ;; extract queue and pids from :radarly and dissoc :radarly data
           (update-aws-inventory! instance)))
       "aws ec2 inventory consumer"))
@@ -212,14 +227,15 @@
               ;;add server
               (do
                 (log/info "Adding instance" (:instance-id instance)  "to aws queue")
-                (.put aws-queue instance))
+                (put @aws-queue instance))
                 ;;update server
-                (do
-                  (.put aws-queue (assoc instance :update true))))
+              (when (instance-change? instance (keyword (:instance-id instance)))
+                (log/info "Send updated instance" (:instance-id instance)  "to aws queue")
+                (put @aws-queue (assoc instance :update true))))
             ;;when state is terminated
             (when (cached? (:instance-id instance))
               (log/info "Removing instance" (:instance-id instance))
-              (.put aws-queue (assoc instance :delete true)))))
+              (put @aws-queue (assoc instance :delete true)))))
 
 (defn refresh-instance
   [region instance-id]
@@ -243,7 +259,7 @@
         (doseq [[k v] @aws-inventory]
           (when-not (k imap)
             (log/info "Removing instance" k)
-            (.put aws-queue (assoc (k @aws-inventory) :delete true))))
+            (put @aws-queue (assoc (k @aws-inventory) :delete true))))
         ;;detection of new server
         (doseq [instance ilist]
           (manage-instance instance)))))
@@ -253,7 +269,7 @@
   "get instances list and check inventory consistency
   add instance to queue if it is absent, remove deleted instance"
   []
-  (let [refresh-period (periodic-seq (fuzz) (t/minutes (:refresh-period (get-conf))))]
+  (let [refresh-period (chime/periodic-seq (fuzz) (Duration/ofMinutes (:refresh-period (get-conf))))]
   (log/info "[Refresh] starting refresh AWS loop")
   (chime-at refresh-period
     refresh)))

@@ -1,16 +1,15 @@
 (ns com.linkfluence.inventory.gcp.instance
   (:require [clojure.string :as str]
-            [chime :refer [chime-at]]
-            [clj-time.core :as t]
-            [clj-time.periodic :refer [periodic-seq]]
+            [chime.core :as chime :refer [chime-at]]
             [cheshire.core :as json]
             [clojure.tools.logging :as log]
             [clj-gcloud.compute.instance :as gci]
             [com.linkfluence.inventory.gcp.common :refer :all]
             [com.linkfluence.inventory.core :as inventory]
             [com.linkfluence.store :as store]
-            [com.linkfluence.utils :as u])
-  (:import [java.util.concurrent LinkedBlockingQueue]))
+            [com.linkfluence.utils :as u]
+            [com.linkfluence.inventory.queue :as queue :refer [put tke]])
+  (:import [java.time Instant Duration]))
 
 ; @author Jean-Baptiste Besselat
 ; @Copyright Linkfluence SAS 2020 / Adot 2020 / Jean-baptiste Besselat 2020
@@ -18,7 +17,10 @@
 ;;Handler for ali cloud ECS
 (def gcpi-inventory (atom {}))
 
-(def ^LinkedBlockingQueue gcpi-queue (LinkedBlockingQueue.))
+(def last-save (atom (System/currentTimeMillis)))
+(def items-not-saved (atom 0))
+
+(def gcpi-queue (atom nil))
 
 (defn load-inventory!
   []
@@ -28,9 +30,12 @@
 (defn save-inventory
   "Save on both local file and s3"
   []
-  (when (= 0 (.size gcpi-queue))
-    (store/save-map (get-service-store "vm") @gcpi-inventory)
-    (u/fsync "gcp/instance")))
+  (if (u/save? last-save items-not-saved)
+    (do
+        (store/save-map (get-service-store "vm") @gcpi-inventory)
+        (u/reset-save! last-save items-not-saved)
+        (u/fsync "gcp/instance"))
+    (swap! items-not-saved inc)))
 
 (defn- get-instances
   "Retrieve instance"
@@ -59,14 +64,14 @@
               ;;add server
               (do
                 (log/info "Adding instance" (:id instance)  "to gcpi queue")
-                (.put gcpi-queue [instance "lifecycle" nil]))
+                (put @gcpi-queue [instance "lifecycle" nil]))
                 ;;update server
                 (do
-                  (.put gcpi-queue [(assoc instance :update true) "lifecycle" nil])))
+                  (put @gcpi-queue [(assoc instance :update true) "lifecycle" nil])))
             ;;when state is terminated
             (when (cached? (:id instance))
               (log/info "Removing instance" (:id instance))
-              (.put gcpi-queue [(assoc instance :delete true) "lifecycle" nil]))))
+              (put @gcpi-queue [(assoc instance :delete true) "lifecycle" nil]))))
 
 (defn refresh-instance
   [project zone instance-id]
@@ -140,7 +145,7 @@
         (doseq [[k v] @gcpi-inventory]
           (when-not (k imap)
             (log/info "Removing instance" k)
-            (.put gcpi-queue [(assoc (k @gcpi-inventory) :delete true) "lifecycle" nil])))
+            (put @gcpi-queue [(assoc (k @gcpi-inventory) :delete true) "lifecycle" nil])))
         ;;detection of new server
         (doseq [instance ilist]
           (manage-instance instance)))
@@ -152,14 +157,14 @@
     []
     (u/start-thread!
         (fn [] ;;consume queue
-          (when-let [[instance op params] (.take gcpi-queue)]
+          (when-let [[instance op params] (tke @gcpi-queue)]
             ;; extract queue and pids from :radarly and dissoc :radarly data
             (when (= "lifecycle" op)
                 (update-gcpi-inventory! instance))))
         "gcp instance inventory consumer"))
 
 (defn start-loop! []
-  (let [refresh-period (periodic-seq (t/now) (t/minutes (:refresh-period (get-conf))))]
+  (let [refresh-period (chime/periodic-seq (chime/now) (Duration/ofMinutes (:refresh-period (get-conf))))]
     (log/info "[Refresh] starting refresh gcpi loop")
     (chime-at refresh-period
         refresh)))

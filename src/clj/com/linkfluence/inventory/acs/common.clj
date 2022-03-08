@@ -21,9 +21,9 @@
   []
   (:read-only @conf))
 
-  (defn tags-binder
-    [tags]
-    (u/tags-binder (:tags-binding (get-conf)) tags))
+(defn tags-binder
+  [tags]
+  (u/tags-binder (:tags-binding (get-conf)) tags))
 
 (defn date-hack
   [data]

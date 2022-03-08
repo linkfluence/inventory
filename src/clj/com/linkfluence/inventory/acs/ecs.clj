@@ -1,20 +1,22 @@
 (ns com.linkfluence.inventory.acs.ecs
-  (:require [chime :refer [chime-at]]
-            [clj-time.core :as t]
-            [clj-time.periodic :refer [periodic-seq]]
+  (:require [chime.core :as chime :refer [chime-at]]
             [com.linkfluence.store :as store]
             [com.linkfluence.utils :as u]
             [com.linkfluence.inventory.core :as inventory]
             [clojure.tools.logging :as log]
             [cheshire.core :as json]
             [com.linkfluence.inventory.acs.common :refer :all]
-            [aliyuncs.ecs.instance :as ecsi])
-  (:import [java.util.concurrent LinkedBlockingQueue]))
+            [aliyuncs.ecs.instance :as ecsi]
+            [com.linkfluence.inventory.queue :as queue :refer [init-queue put tke]])
+   (:import [java.time Instant Duration]))
 
 ;;Handler for ali cloud ECS
 (def acs-inventory (atom {}))
 
-(def ^LinkedBlockingQueue acs-queue (LinkedBlockingQueue.))
+(def last-save (atom (System/currentTimeMillis)))
+(def items-not-saved (atom 0))
+
+(def acs-queue (atom nil))
 
 (defn load-inventory!
   []
@@ -24,9 +26,12 @@
 (defn save-inventory
   "Save on both local file and s3"
   []
-  (when (= 0 (.size acs-queue))
-    (store/save-map (get-service-store "ecs") @acs-inventory)
-    (u/fsync "acs/ecs")))
+  (if (u/save? last-save items-not-saved)
+    (do
+        (store/save-map (get-service-store "ecs") @acs-inventory)
+        (u/reset-save! last-save items-not-saved)
+        (u/fsync "acs/ecs"))
+    (swap! items-not-saved inc)))
 
 (defn get-acs-inventory
   "Retrieve a list of filtered instance or not"
@@ -62,14 +67,14 @@
               ;;add server
               (do
                 (log/info "Adding instance" (:instanceId instance)  "to acs queue")
-                (.put acs-queue [instance "lifecycle" nil]))
+                (put @acs-queue [instance "lifecycle" nil]))
                 ;;update server
                 (do
-                  (.put acs-queue [(assoc instance :update true) "lifecycle" nil])))
+                  (put @acs-queue [(assoc instance :update true) "lifecycle" nil])))
             ;;when state is terminated
             (when (cached? (:instanceId instance))
               (log/info "Removing instance" (:instanceId instance))
-              (.put acs-queue [(assoc instance :delete true) "lifecycle" nil]))))
+              (put @acs-queue [(assoc instance :delete true) "lifecycle" nil]))))
 
 (defn refresh-instance
   [region instance-id]
@@ -81,7 +86,7 @@
 (defn rename-request
     [instance-id instance-name]
     (when-let [instance (get @acs-inventory (keyword instance-id) nil)]
-        (.put acs-queue [instance-id "rename" instance-name])))
+        (put @acs-queue [instance-id "rename" instance-name])))
 
 (defn rename-acs-instance!
     [instance-id instance-name]
@@ -143,7 +148,7 @@
         (doseq [[k v] @acs-inventory]
           (when-not (k imap)
             (log/info "Removing instance" k)
-            (.put acs-queue [(assoc (k @acs-inventory) :delete true) "lifecycle" nil])))
+            (put @acs-queue [(assoc (k @acs-inventory) :delete true) "lifecycle" nil])))
         ;;detection of new server
         (doseq [instance ilist]
           (manage-instance instance)))
@@ -154,7 +159,7 @@
     []
     (u/start-thread!
         (fn [] ;;consume queue
-          (when-let [[instance op params] (.take acs-queue)]
+          (when-let [[instance op params] (tke @acs-queue)]
             ;; extract queue and pids from :radarly and dissoc :radarly data
             (when (= "lifecycle" op)
                 (update-acs-inventory! instance))
@@ -164,7 +169,12 @@
 
 (defn start-loop!
   []
-  (let [refresh-period (periodic-seq (t/now) (t/minutes (:refresh-period (get-conf))))]
+  (let [refresh-period (chime/periodic-seq (chime/now) (Duration/ofMinutes (:refresh-period (get-conf))))]
     (log/info "[Refresh] starting refresh acs loop")
-    (chime-at refresh-period
-        refresh)))
+    (let [stop-fn-refresh (chime-at refresh-period
+                            refresh)
+          stop-fn-save    (chime-at (chime/periodic-seq (chime/now) (Duration/ofSeconds 5))
+                            (fn [_] (save-inventory)))]
+        (fn []
+            (stop-fn-refresh)
+            (stop-fn-save)))))

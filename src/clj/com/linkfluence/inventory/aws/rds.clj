@@ -1,19 +1,22 @@
 (ns com.linkfluence.inventory.aws.rds
-  (:require [chime :refer [chime-at]]
+  (:require [chime.core :as chime :refer [chime-at]]
             [clojure.string :as str]
-            [clj-time.core :as t]
             [clj-time.periodic :refer [periodic-seq]]
             [com.linkfluence.store :as store]
             [com.linkfluence.utils :as u]
             [com.linkfluence.inventory.core :as inventory]
             [clojure.tools.logging :as log]
             [amazonica.aws.rds :as rds]
-            [com.linkfluence.inventory.aws.common :refer :all])
-  (:import [java.util.concurrent LinkedBlockingQueue]))
+            [com.linkfluence.inventory.aws.common :refer :all]
+            [com.linkfluence.inventory.queue :as queue :refer [put tke]])
+  (:import [java.time Instant Duration]))
 
 (def aws-inventory (atom {}))
 
-(def ^LinkedBlockingQueue aws-queue (LinkedBlockingQueue.))
+(def last-save (atom (System/currentTimeMillis)))
+(def items-not-saved (atom 0))
+
+(def aws-queue (atom nil))
 
 ;;load and store inventory
 (defn load-inventory!
@@ -24,9 +27,12 @@
 (defn save-inventory
   "Save on both local file and s3"
   []
-  (when (= 0 (.size aws-queue))
-    (store/save-map (get-service-store "rds") @aws-inventory)
-    (u/fsync "aws/rds")))
+  (if (u/save? last-save items-not-saved)
+    (do
+        (store/save-map (get-service-store "rds") @aws-inventory)
+        (u/reset-save! last-save items-not-saved)
+        (u/fsync "aws/rds"))
+    (swap! items-not-saved inc)))
 
 (defn cached?
   "check if corresponding domain exist in cache inventory"
@@ -146,7 +152,7 @@
   []
     (u/start-thread!
       (fn [] ;;consume queue
-        (when-let [instance (.take aws-queue)]
+        (when-let [instance (tke @aws-queue)]
           ;; extract queue and pids from :radarly and dissoc :radarly data
           (update-aws-inventory! instance)))
       "aws rds inventory consumer"))
@@ -156,7 +162,7 @@
   "get rds instances/endpoints list and check inventory consistency
   add rds instance to queue if it is absent, remove deleted rds instance"
   []
-  (let [refresh-period (periodic-seq (fuzz) (t/minutes (:refresh-period (get-conf))))]
+  (let [refresh-period (chime/periodic-seq (fuzz) (Duration/ofMinutes (:refresh-period (get-conf))))]
   (log/info "[Refresh] starting refresh AWS loop")
   (chime-at refresh-period
     (fn [_]
@@ -169,14 +175,14 @@
             (doseq [[k v] @aws-inventory]
               (when-not (k dbimap)
                 (log/info "Removing db-instance" k)
-                (.put aws-queue (assoc (k @aws-inventory) :delete true))))
+                (put @aws-queue (assoc (k @aws-inventory) :delete true))))
             ;;add
             (doseq [instance db-instances]
               (if (cached? (:unique-dbinstance-identifier instance))
                 ;;update
                 (do
-                  (.put aws-queue (assoc instance :update true)))
+                  (put @aws-queue (assoc instance :update true)))
                 ;;add
                 (do
                   (log/info "Adding db-instance" (:unique-dbinstance-identifier instance)  "to aws queue")
-                  (.put aws-queue instance))))))))))
+                  (put @aws-queue instance))))))))))

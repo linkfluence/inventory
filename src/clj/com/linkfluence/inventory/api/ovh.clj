@@ -24,8 +24,6 @@
                         (log/info "[FSYNC] received ovh-cloud update notification"))
                       (u/mk-resp 202 "success" {} "Operation submitted"))
                       (u/mk-resp 403 "error" {} "Not read only, sync forbidden")))
-  (GET "/event/server" [] (u/mk-resp 200 "success" {:data {:size (server/get-ovh-event-queue-size)}}))
-  (GET "/event/cloud" [] (u/mk-resp 200 "success" {:data {:size (cloud/get-ovh-event-queue-size)}}))
   (GET "/server-id-with-ns/:server-ns" [server-ns] (u/mk-resp 200 "success" {:data (server/get-server-id-with-ns server-ns)}))
   (GET "/server" [] (u/mk-resp 200 "success" {:data (server/get-ovh-inventory)}))
   (GET "/server/:id" [id] (if-let [server (server/get-server (keyword id))]
