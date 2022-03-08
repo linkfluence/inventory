@@ -36,7 +36,9 @@ Documentation is available [here](doc/intro.md)
 
 ## General stuffs
 
-Copyright Jean-Baptiste Besselat © 2022 Linkfluence SAS
+Copyright Jean-Baptiste Besselat © 2022 Linkfluence SAS, a Meltwater company.
+
+Many thanks to Adot and Linkfluence. 
 
 OMAPI dhcp by talamso@gmx.net, website <https://talamonso.net/omapi/>, maintained here: <https://github.com/jedi4ever/omapi-dhcp>
 
