@@ -99,8 +99,8 @@
                                                    (when (:public-ip-address instance)
                                                       {:name "publicIp" :value (:public-ip-address instance)})
                                                    {:name "privateIp" :value (:private-ip-address instance)}]
-                                                    (tags-binder tags))
-                                                    (add-tags-delete-flag tags previous-tags)))}))))
+                                                    (tags-binder tags)
+                                                    (add-tags-delete-flag tags previous-tags))))}))))
 
 (defn instance-change?
     [instance kid]
