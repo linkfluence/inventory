@@ -105,19 +105,14 @@
   (let [kid (keyword (:instance-id instance))
         need-update (atom true)]
         (if (:delete instance)
-          (do
             (swap! aws-inventory dissoc kid)
-            (send-tags-request instance))
           (if (:update instance)
-            (when (instance-change? instance kid)
+            (do
               (swap! aws-inventory assoc-in [kid :public-ip-address] (:public-ip-address instance))
               (swap! aws-inventory assoc-in [kid :tags] (:tags instance))
-              (swap! aws-inventory assoc-in [kid :instance-type] (:instance-type instance))
-              (send-tags-request instance))
-            (do
-              (swap! aws-inventory assoc kid (dissoc (date-hack instance) :update))
-              (send-tags-request instance))))
-
+              (swap! aws-inventory assoc-in [kid :instance-type] (:instance-type instance)))
+            (swap! aws-inventory assoc kid (dissoc (date-hack instance) :update))))
+        (send-tags-request instance)
         (save-inventory)))
 
 
@@ -234,8 +229,9 @@
                 (log/info "Adding instance" (:instance-id instance)  "to aws queue")
                 (put @aws-queue instance))
                 ;;update server
-                (do
-                  (put @aws-queue (assoc instance :update true))))
+              (when (instance-change? instance (keyword (:instance-id instance)))
+                (log/info "Send updated instance" (:instance-id instance)  "to aws queue")
+                (put @aws-queue (assoc instance :update true))))
             ;;when state is terminated
             (when (cached? (:instance-id instance))
               (log/info "Removing instance" (:instance-id instance))
