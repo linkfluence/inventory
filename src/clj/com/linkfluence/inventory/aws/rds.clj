@@ -40,8 +40,9 @@
   (not (nil? (get @aws-inventory (keyword rds-id) nil))))
 
 (defn send-tags-request
-  [instance]
-  (let [tags (get-tags-from-entity-map instance)]
+  [instance last-instance-state]
+  (let [tags (get-tags-from-entity-map instance)
+        previous-tags (get-tags-from-entity-map last-instance-state)]
     (if (:delete instance)
       (inventory/add-inventory-event {:type "resource"
                                :provider "AWS"
@@ -62,17 +63,19 @@
                                                    {:name "dbname" :value (:dbname instance)}
                                                    {:name "instance_type" :value (get-in instance [:dbinstance-class])}
                                                    {:name "dbinstance-identifier" :value (:dbinstance-identifier instance)}]
-                                                    (tags-binder tags))))}))))
+                                                    (tags-binder tags)
+                                                    (add-tags-delete-flag tags previous-tags))))}))))
 
 (defn update-aws-inventory!
   "update rds inventory"
   [instance]
-  (let [krds (keyword (:unique-dbinstance-identifier instance))]
+  (let [krds (keyword (:unique-dbinstance-identifier instance))
+        last-instance-state (get @aws-inventory krds)]
     (if (:delete instance)
       ;;handle deletion
       (do
         (swap! aws-inventory dissoc krds)
-        (send-tags-request instance))
+        (send-tags-request instance nil))
       (let [tags (try (:tag-list (rds/list-tags-for-resource
                         (get-service-endpoint (keyword (:region instance)) "rds")
                         :resource-name (:dbinstance-arn instance)))
@@ -88,9 +91,9 @@
               (swap! aws-inventory assoc-in [krds :secondary-availability-zone] (:secondary-availability-zone instance))
               (swap! aws-inventory assoc-in [krds :backup-retention-period] (:backup-retention-period instance))
               (swap! aws-inventory assoc-in [krds :dbinstance-class] (:dbinstance-class instance))
-              (send-tags-request instance*))
+              (send-tags-request instance* last-instance-state))
             (swap! aws-inventory assoc krds (date-hack instance*)))
-          (send-tags-request instance*)))
+          (send-tags-request instance* nil)))
   (save-inventory)))
 
 (defn get-db-instances-from-region

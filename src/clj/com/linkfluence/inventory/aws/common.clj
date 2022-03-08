@@ -70,6 +70,14 @@
   [tags]
   (u/tags-binder (:tags-binding (get-conf)) tags))
 
+(defn add-tags-delete-flag
+  [tags previous-tags]
+  (remove nil?
+      (map (fn [[k v]]
+          (when (nil? (k tags))
+              {:name (name k)
+               :delete true})) previous-tags)))
+
 (defn get-tags-from-entity-map
   "return tags of an instance object"
   [entity]

@@ -68,14 +68,6 @@
   ([region filters]
     (extract-instances (get-reservations region filters))))
 
-(defn add-tags-delete-flag
-    [tags previous-tags]
-    (remove nil?
-        (map (fn [[k v]]
-            (when (nil? (k tags))
-                {:name (name k)
-                 :delete true})) previous-tags)))
-
 (defn send-tags-request
   [instance last-instance-state]
   (let [tags (get-tags-from-entity-map instance)
