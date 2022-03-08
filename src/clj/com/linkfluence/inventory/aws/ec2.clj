@@ -68,9 +68,18 @@
   ([region filters]
     (extract-instances (get-reservations region filters))))
 
+(defn add-tags-delete-flag
+    [tags previous-tags]
+    (remove nil?
+        (map (fn [[k v]]
+            (when (nil? (k tags))
+                {:name (name k)
+                 :delete true})) previous-tags)))
+
 (defn send-tags-request
-  [instance]
-  (let [tags (get-tags-from-entity-map instance)]
+  [instance last-instance-state]
+  (let [tags (get-tags-from-entity-map instance)
+        previous-tags (get-tags-from-entity-map last-instance-state)]
     (if (:delete instance)
       (inventory/add-inventory-event {:type "resource"
                                :provider "AWS"
@@ -90,7 +99,8 @@
                                                    (when (:public-ip-address instance)
                                                       {:name "publicIp" :value (:public-ip-address instance)})
                                                    {:name "privateIp" :value (:private-ip-address instance)}]
-                                                    (tags-binder tags))))}))))
+                                                    (tags-binder tags))
+                                                    (add-tags-delete-flag tags previous-tags)))}))))
 
 (defn instance-change?
     [instance kid]
@@ -103,7 +113,7 @@
 (defn update-aws-inventory!
   [instance]
   (let [kid (keyword (:instance-id instance))
-        need-update (atom true)]
+        last-instance-state (get @aws-inventory kid)]
         (if (:delete instance)
             (swap! aws-inventory dissoc kid)
           (if (:update instance)
@@ -112,7 +122,7 @@
               (swap! aws-inventory assoc-in [kid :tags] (:tags instance))
               (swap! aws-inventory assoc-in [kid :instance-type] (:instance-type instance)))
             (swap! aws-inventory assoc kid (dissoc (date-hack instance) :update))))
-        (send-tags-request instance)
+        (send-tags-request instance last-instance-state)
         (save-inventory)))
 
 
