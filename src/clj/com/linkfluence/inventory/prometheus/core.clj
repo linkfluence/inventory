@@ -36,25 +36,27 @@
 
 (defn flat-agg
   [agg-ress tags]
-  (let [ktags (map keyword tags)
+  (if (not= (count agg-ress) 0)
+    (let [ktags (map keyword tags)
         root-tag (first (keys agg-ress))
         rtags-values (root-tag agg-ress)]
-  (if (= 1 (count tags))
-    (map (fn [[k v]]
-      {:labels {(lower-case (name root-tag)) (lower-case (name k))}
-       :ct (count v)})
-       rtags-values)
-  (mapcat
-    (fn [[k v]]
-      (let [sub-buckets (flat-agg v (rest tags))]
-        (map
-          (fn [{:keys [labels ct]}]
-            {:ct ct
-             :labels (merge
+    (if (= 1 (count tags))
+      (map (fn [[k v]]
+        {:labels {(lower-case (name root-tag)) (lower-case (name k))}
+         :ct (count v)})
+         rtags-values)
+      (mapcat
+        (fn [[k v]]
+          (let [sub-buckets (flat-agg v (rest tags))]
+          (map
+            (fn [{:keys [labels ct]}]
+              {:ct ct
+               :labels (merge
                         labels
                         {(lower-case (name root-tag)) (lower-case (name k))})})
-            sub-buckets)))
-      rtags-values))))
+              sub-buckets)))
+        rtags-values)))
+    []))
 
 (defn metrics-response
   "Generate standard metrics & inventory gauge"
