@@ -17,12 +17,26 @@ Compile jar and create a conf file like one in conf/sample
 
 Inventory are basically stored in flat yaml files so it can be read easily, however for distributed setup the following storage are supported:
 
-* yaml stored into aws s3
-* yaml stored into alicloud oss
+* yaml stored into aws s3 / gcp gs / aliyun oss
 * yaml stored into local filesystem
 * map stored into consul
 
 Storage replication is fully asynchronous inventory aims to retains data in memory to be fast
+
+## Cloud Autorization
+
+### GCP
+
+The following permissions are needed to gcp service account:
+
+* compute.instances.get
+* compute.instances.list
+* storage.objects.create
+* storage.objects.delete
+* storage.objects.get
+* storage.objects.list
+
+The compute permissions are needed to build the inventory, the storage permissions are needed to store inventory state
 
 ## Usage
 
